@@ -1,0 +1,21 @@
+{
+  "name": "slack-command-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Slack command bot with BullMQ and a Windows command worker",
+  "main": "src/bot.js",
+  "scripts": {
+    "start:bot": "node src/bot.js",
+    "start:worker": "node src/worker.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.6.0",
+    "bullmq": "^5.58.0",
+    "dotenv": "^16.6.1",
+    "sql.js": "^1.13.0"
+  }
+}

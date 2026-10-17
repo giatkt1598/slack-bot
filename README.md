@@ -137,22 +137,26 @@ Mở `.env` và điền:
 
 ```powershell
 npm ci
-npm start      # phải thấy: ⚡ Slack bot is running in Socket Mode (actions: deploy, status)
+npm run start   # dev: nodemon, tự reload khi sửa file trong src/ hoặc .env
+npm run serve   # chạy một lần, không reload
 ```
 
-`gcmd` phải nằm trong `PATH` của tài khoản chạy bot. Dừng bằng `Ctrl+C`.
+Phải thấy `⚡ Slack bot is running in Socket Mode (actions: …)`. `gcmd` phải nằm trong `PATH` của tài khoản chạy bot. Dừng bằng `Ctrl+C`.
 
-### Chạy tự động khi khởi động máy (Task Scheduler)
+> Mỗi lần nodemon reload, các lệnh đang chạy (ví dụ deploy đang chờ `[Y/n]`) bị kill và báo `#N thất bại: Bị gián đoạn do bot khởi động lại.` Vì vậy chỉ dùng `npm run start` khi phát triển.
 
-Tạo task chạy khi khởi động và tự khởi động lại khi lỗi:
+### Tự chạy khi đăng nhập Windows (Task Scheduler)
 
-```text
-Program:   C:\Program Files\nodejs\node.exe
-Arguments: D:\repos\slack-bot\src\index.ts
-Start in:  D:\repos\slack-bot
+```powershell
+npm run register                # tạo task "SlackCommandRunner": tự chạy bot mỗi khi bạn đăng nhập Windows
+npm run register -- -StartNow   # tạo task và chạy luôn bây giờ
+npm run unregister              # gỡ task và dừng bot mà task đang chạy
 ```
 
-Chạy task bằng tài khoản có quyền thực thi `gcmd`. Biến môi trường lấy từ file `.env` trong thư mục dự án.
+- Task chạy `node src/index.ts` (không nodemon) bằng tài khoản Windows của bạn, không cần quyền admin, cửa sổ ẩn.
+- Log ghi thêm vào `data/bot.log`.
+- Không giới hạn thời gian chạy; nếu task lỗi thì tự chạy lại sau 1 phút. Chạy lại `npm run register` để cập nhật task (ví dụ sau khi đổi thư mục dự án hoặc phiên bản Node).
+- **Chỉ được chạy một bản**: khi task đang chạy thì không chạy thêm `npm run start`/`serve` (và ngược lại) — bản thứ hai sẽ thoát với `Bot đang chạy ở tiến trình khác (PID …)`.
 
 ---
 
@@ -236,9 +240,9 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 | Hiện tượng | Nguyên nhân thường gặp |
 |---|---|
-| Bot không phản hồi gì | Bot chưa chạy (`npm start` / Task Scheduler), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
+| Bot không phản hồi gì | Bot chưa chạy (`npm run start` / `npm run register`, xem `data/bot.log`), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
 | Reply trong thread bị bỏ qua | Thiếu event `message.channels` / `message.groups` hoặc scope `channels:history` / `groups:history` |
-| `Bot đang chạy ở tiến trình khác (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước |
+| `Bot đang chạy ở tiến trình khác (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước (`npm run unregister` hoặc `Ctrl+C`) |
 | `#N thất bại: Bị gián đoạn do bot khởi động lại.` | Bot bị tắt/khởi động lại khi job đang chạy; chạy lại lệnh nếu cần |
 | `#N thất bại: spawn gcmd ENOENT` | `gcmd` không nằm trong `PATH` của tài khoản chạy bot |
 

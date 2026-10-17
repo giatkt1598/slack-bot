@@ -6,7 +6,10 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "start": "node src/index.ts",
+    "start": "nodemon",
+    "serve": "node src/index.ts",
+    "register": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-task.ps1",
+    "unregister": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/unregister-task.ps1",
     "typecheck": "tsc",
     "test": "node --test \"test/**/*.test.ts\""
   },
@@ -23,6 +26,7 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^24.19.2",
     "@types/sql.js": "^1.4.11",
+    "nodemon": "^3.1.14",
     "typescript": "^7.0.2"
   }
 }

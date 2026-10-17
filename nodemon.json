@@ -1,0 +1,6 @@
+{
+  "watch": ["src", ".env"],
+  "ext": "ts,json",
+  "exec": "node src/index.ts",
+  "delay": 500
+}

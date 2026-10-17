@@ -1,0 +1,12 @@
+{
+  "name": "gcmd-command",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mock gcmd CLI for testing the Slack command runner",
+  "bin": {
+    "gcmd": "bin/gcmd.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -47,8 +47,49 @@ function updateJob(database, id, patch) {
   const columns = Object.keys(patch).filter((key) => allowed.includes(key));
   if (!columns.length) return;
   const names = columns.map((key) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`));
-  db.run(`UPDATE jobs SET ${names.map((name) => `${name} = ?`).join(', ')} WHERE id = ?`, [...columns.map((key) => patch[key]), id]);
+  db.run(`UPDATE jobs SET ${names.map((name) => `${name} = ?`).join(', ')} WHERE id = ?`, [...columns.map((key) => patch[key] ?? null), id]);
   persist(db, filename);
 }
 
-module.exports = { createDatabase, insertJob, updateJob };
+function queryOne(db, sql, params) {
+  const statement = db.prepare(sql);
+  try {
+    statement.bind(params);
+    return statement.step() ? statement.getAsObject() : null;
+  } finally {
+    statement.free();
+  }
+}
+
+function toJob(row) {
+  return row && {
+    id: row.id,
+    action: row.action,
+    input: JSON.parse(row.input_json),
+    status: row.status,
+    channelId: row.slack_channel_id,
+    threadTs: row.slack_thread_ts,
+    userId: row.slack_user_id
+  };
+}
+
+function getJob(database, id) {
+  return toJob(queryOne(database.db, 'SELECT * FROM jobs WHERE id = ?', [id]));
+}
+
+// The newest unfinished job whose status updates live in this Slack thread.
+function findActiveJobByThread(database, channelId, threadTs) {
+  return toJob(queryOne(database.db, `
+    SELECT * FROM jobs
+    WHERE slack_channel_id = ? AND slack_thread_ts = ? AND status IN ('queued', 'running', 'waiting_input')
+    ORDER BY created_at DESC LIMIT 1
+  `, [channelId, threadTs]));
+}
+
+// Highest N among job ids of the form "job-N" (older rows used UUIDs and are ignored).
+function maxJobNumber(database) {
+  const row = queryOne(database.db, "SELECT MAX(CAST(SUBSTR(id, 5) AS INTEGER)) AS n FROM jobs WHERE id LIKE 'job-%'", []);
+  return row?.n || 0;
+}
+
+module.exports = { createDatabase, insertJob, updateJob, getJob, findActiveJobByThread, maxJobNumber };

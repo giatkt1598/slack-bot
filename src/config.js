@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 function csv(value) {
   return (value || '').split(',').map((item) => item.trim()).filter(Boolean);
@@ -11,10 +11,11 @@ const config = {
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: Number(process.env.REDIS_PORT || 6379)
   },
-  queueName: process.env.QUEUE_NAME || 'command-jobs',
+  queuePrefix: process.env.QUEUE_PREFIX || 'command-jobs',
   databasePath: process.env.DATABASE_PATH || './data/slack-bot.sqlite',
-  workerConcurrency: Number(process.env.WORKER_CONCURRENCY || 1),
   commandTimeoutMs: Number(process.env.COMMAND_TIMEOUT_MS || 1800000),
+  inputTimeoutMs: Number(process.env.INPUT_TIMEOUT_MS || 1800000),
+  gcmdBin: process.env.GCMD_BIN || 'gcmd',
   authorizedChannelIds: csv(process.env.AUTHORIZED_CHANNEL_IDS),
   authorizedUserIds: csv(process.env.AUTHORIZED_USER_IDS),
   logLevel: process.env.LOG_LEVEL || 'info'
@@ -26,4 +27,10 @@ function assertBotConfig() {
   }
 }
 
-module.exports = { config, assertBotConfig };
+function isAuthorized(channelId, userId) {
+  const channelOk = !config.authorizedChannelIds.length || config.authorizedChannelIds.includes(channelId);
+  const userOk = !config.authorizedUserIds.length || config.authorizedUserIds.includes(userId);
+  return channelOk && userOk;
+}
+
+module.exports = { config, assertBotConfig, isAuthorized };

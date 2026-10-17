@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Slack command bot with BullMQ and a Windows command worker",
-  "main": "src/bot.js",
+  "main": "src/bot/index.js",
   "scripts": {
-    "start:bot": "node src/bot.js",
-    "start:worker": "node src/worker.js",
+    "start:bot": "node src/bot/index.js",
+    "start:worker": "node src/worker/index.js",
     "test": "node --test"
   },
   "engines": {
@@ -15,7 +15,9 @@
   "dependencies": {
     "@slack/bolt": "^4.6.0",
     "bullmq": "^5.58.0",
+    "cross-spawn": "^7.0.6",
     "dotenv": "^16.6.1",
+    "ioredis": "^5.11.1",
     "sql.js": "^1.13.0"
   }
 }

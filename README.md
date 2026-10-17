@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](README.vi.md)
 
-A Slack bot that takes commands from users (for example `deploy GCD-123`), queues them and runs them directly on the Windows machine that has `gcmd` — all in **a single Node.js process**. While a command runs:
+A Slack bot that takes commands from users (for example `deploy ABC-123`), queues them and runs them directly on the Windows machine that has `gcmd` — all in **a single Node.js process**. While a command runs:
 
 - its output is streamed into Slack (one log message that keeps updating);
 - when the command asks something (for example `Are you sure? [Y/n]`), the bot posts `❓ [#N] <question>`; the user replies and the answer goes straight to the command;
@@ -10,12 +10,12 @@ A Slack bot that takes commands from users (for example `deploy GCD-123`), queue
 
 Available commands:
 
-| Command | Runs | Mode |
-|---|---|---|
-| `deploy GCD-123` | `gcmd deploy --ticket GCD-123` | Sequential (one job at a time), asks for confirmation |
-| `status GCD-123` | `gcmd status --ticket GCD-123` | Parallel (up to 4 jobs) |
+| Command                      | Runs                                              | Mode                                                       |
+| ---------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| `deploy ABC-123`             | `gcmd deploy --ticket ABC-123`                    | Sequential (one job at a time), asks for confirmation      |
+| `status ABC-123`             | `gcmd status --ticket ABC-123`                    | Parallel (up to 4 jobs)                                    |
 | `ipconfig` / `ipconfig /all` | `ipconfig` / `ipconfig /all` on the bot's machine | Parallel (up to 4 jobs); only these two forms are accepted |
-| `systeminfo` | `systeminfo` on the bot's machine | Sequential; takes no arguments; takes a few seconds |
+| `systeminfo`                 | `systeminfo` on the bot's machine                 | Sequential; takes no arguments; takes a few seconds        |
 
 ## Architecture
 
@@ -90,10 +90,10 @@ settings:
 
 The bot needs **both** tokens:
 
-| Variable | Where to get it | Used for |
-|---|---|---|
+| Variable                     | Where to get it                                                                                                             | Used for                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `SLACK_APP_TOKEN` (`xapp-…`) | **Basic Information** → **App-Level Tokens** → **Generate Token and Scopes** → add scope `connections:write` → **Generate** | Opening the Socket Mode connection, receiving events |
-| `SLACK_BOT_TOKEN` (`xoxb-…`) | **OAuth & Permissions** → **Install to Workspace** → **Allow** → copy the **Bot User OAuth Token** | Posting and updating messages |
+| `SLACK_BOT_TOKEN` (`xoxb-…`) | **OAuth & Permissions** → **Install to Workspace** → **Allow** → copy the **Bot User OAuth Token**                          | Posting and updating messages                        |
 
 > Whenever you change scopes or events, Slack asks you to **Reinstall to Workspace** — the change only takes effect after reinstalling.
 
@@ -124,13 +124,13 @@ copy .env.example .env
 
 Open `.env` and fill in:
 
-| Variable | Meaning | Default |
-|---|---|---|
-| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` | Tokens from the step above | — |
-| `DATABASE_PATH` | SQLite file holding the job history; the lock file lives in the same folder | `./data/slack-bot.sqlite` |
-| `COMMAND_TIMEOUT_MS` | Maximum run time of a command (time waiting for an answer is not counted) | 30 minutes |
-| `INPUT_TIMEOUT_MS` | How long to wait for a user's answer before the command is cancelled | 30 minutes |
-| `AUTHORIZED_CHANNEL_IDS`, `AUTHORIZED_USER_IDS` | Restrict channels / users | empty = everyone |
+| Variable                                        | Meaning                                                                     | Default                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------- | ------------------------- |
+| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`            | Tokens from the step above                                                  | —                         |
+| `DATABASE_PATH`                                 | SQLite file holding the job history; the lock file lives in the same folder | `./data/slack-bot.sqlite` |
+| `COMMAND_TIMEOUT_MS`                            | Maximum run time of a command (time waiting for an answer is not counted)   | 30 minutes                |
+| `INPUT_TIMEOUT_MS`                              | How long to wait for a user's answer before the command is cancelled        | 30 minutes                |
+| `AUTHORIZED_CHANNEL_IDS`, `AUTHORIZED_USER_IDS` | Restrict channels / users                                                   | empty = everyone          |
 
 ### Run the bot
 
@@ -167,19 +167,19 @@ npm run unregister              # remove the task (and its folder), stop the bot
 
 Two ways, same result:
 
-- **Direct message** to the bot: `deploy GCD-123`
-- **@mention** in a channel: `@Command Runner deploy GCD-123`
+- **Direct message** to the bot: `deploy ABC-123`
+- **@mention** in a channel: `@Command Runner deploy ABC-123`
 
-Tickets must look like `LETTERS-NUMBER` (for example `GCD-123`). For anything the bot doesn't understand, it replies with `Supported commands:` and the list of commands.
+Tickets must look like `LETTERS-NUMBER` (for example `ABC-123`). For anything the bot doesn't understand, it replies with `Supported commands:` and the list of commands.
 
 ### Following a job and answering
 
 **Direct message (DM):** the bot replies straight into the conversation, without threads. When it posts `❓ [#N] …`, just send your answer as a normal message:
 
 ```
-#1 Running `gcmd deploy --ticket GCD-123`
+#1 Running `gcmd deploy --ticket ABC-123`
 📜 Log #1 (running…)
-❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
+❓ [#1] Are you sure you want to deploy ABC-123 to production? [Y/n]
 Y                                                 ← you
 ❓ [#1] Release note (optional):
 fix login                                         ← you
@@ -191,9 +191,9 @@ fix login                                         ← you
 **In a channel:** every update of a job goes to the thread of its `#N Running …` message (or the thread where you @mentioned the bot):
 
 ```
-#1 Running `gcmd deploy --ticket GCD-123`
+#1 Running `gcmd deploy --ticket ABC-123`
   └ 📜 Log #1 (running…)                          ← updates about every 2 seconds
-  └ ❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
+  └ ❓ [#1] Are you sure you want to deploy ABC-123 to production? [Y/n]
   └ (you reply: Y)                                ← the bot doesn't reply; the answer shows up in the log
   └ ❓ [#1] Release note (optional):
   └ (you reply: fix login)
@@ -205,7 +205,7 @@ fix login                                         ← you
 - The log message shows the **last 10,000 characters** of output. If a command prints more, the beginning is cut off (the log starts with `…`). Slack truncates a message at 40,000 characters, so this limit (`MAX_CHARS` in `src/bot/logStream.ts`) can't be raised indefinitely.
 - If nobody answers within `INPUT_TIMEOUT_MS` (30 minutes by default), the command is cancelled: `#1 failed: No answer received in time (30 minutes).`
 - `deploy` jobs run one after another — the next job waits until the previous one has finished (and reported `completed`/`failed`). `status` jobs run in parallel.
-- If a job has to wait (jobs are already waiting, or every slot is busy), the bot first posts ``Added #4 `gcmd deploy --ticket GCD-111` to the queue``, then `#4 Running …` when the job actually starts. A job that can start right away only gets `#4 Running …`.
+- If a job has to wait (jobs are already waiting, or every slot is busy), the bot first posts ``Added #4 `gcmd deploy --ticket ABC-111` to the queue``, then `#4 Running …` when the job actually starts. A job that can start right away only gets `#4 Running …`.
 
 ### Viewing the queue
 
@@ -214,10 +214,10 @@ Type `queue` (in a DM, when @mentioning the bot, or as a reply in the thread of 
 ```
 📋 Queue
 *deploy* (sequential)
-• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · Gia
-• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · Gia
+• #15 `gcmd deploy --ticket ABC-1` — ❓ waiting for an answer · Gia
+• #16 `gcmd deploy --ticket ABC-2` — ⏳ queued (position 1) · Gia
 *status* (up to 4 in parallel)
-• #18 `gcmd status --ticket GCD-9` — ▶️ running · Gia
+• #18 `gcmd status --ticket ABC-9` — ▶️ running · Gia
 ```
 
 It lists **all** jobs, including ones started in other people's DMs. Creators are shown by plain name, never as an @mention, so listing the queue notifies nobody (names are looked up with the `users:read` scope; without it, or if a lookup fails, the user ID is shown instead). Commands without jobs are left out; if everything is empty the bot replies `📋 The queue is empty…`. Like `cancel`, `queue` is always treated as a bot command, even while a DM job is waiting for an answer.
@@ -226,12 +226,12 @@ It lists **all** jobs, including ones started in other people's DMs. Creators ar
 
 Type `cancel #3` (or `cancel 3`) — in a DM, when @mentioning the bot, or as a reply in the job's thread:
 
-| Job state | What the bot does |
-|---|---|
-| Queued | Removes it from the queue and posts `#3 cancelled by @you` |
-| Running / waiting for an answer | Kills the command (including child processes) and posts `#3 cancelled by @you` |
-| Finished (completed, failed or cancelled) | Replies `#3 has already finished.` |
-| No job with that number | Replies `#3 not found.` |
+| Job state                                 | What the bot does                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------ |
+| Queued                                    | Removes it from the queue and posts `#3 cancelled by @you`                     |
+| Running / waiting for an answer           | Kills the command (including child processes) and posts `#3 cancelled by @you` |
+| Finished (completed, failed or cancelled) | Replies `#3 has already finished.`                                             |
+| No job with that number                   | Replies `#3 not found.`                                                        |
 
 - `cancel` is always treated as a cancel command, even while a DM job is waiting for an answer.
 - The cancel message is posted where the job lives (the DM or the job's thread). If you type `cancel` somewhere else, the bot also replies `Cancelling #3…` there.
@@ -240,13 +240,13 @@ Type `cancel #3` (or `cancel 3`) — in a DM, when @mentioning the bot, or as a 
 
 ### Troubleshooting
 
-| Symptom | Common cause |
-|---|---|
-| The bot doesn't respond at all | The bot isn't running (`npm run start` / `npm run register`, check `data/bot.log`), a scope/event is missing, or the app wasn't **reinstalled** after changing scopes; in a channel, the bot hasn't been `/invite`d |
-| Replies in a thread are ignored | Missing event `message.channels` / `message.groups` or scope `channels:history` / `groups:history` |
-| `The bot is already running in another process (PID …)` on start | Another instance is running (for example from Task Scheduler). Stop it first (`npm run unregister` or `Ctrl+C`) |
-| `#N failed: Interrupted because the bot restarted.` | The bot was stopped/restarted while the job was running; run the command again if needed |
-| `#N failed: spawn gcmd ENOENT` | `gcmd` is not on the `PATH` of the account running the bot |
+| Symptom                                                          | Common cause                                                                                                                                                                                                        |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The bot doesn't respond at all                                   | The bot isn't running (`npm run start` / `npm run register`, check `data/bot.log`), a scope/event is missing, or the app wasn't **reinstalled** after changing scopes; in a channel, the bot hasn't been `/invite`d |
+| Replies in a thread are ignored                                  | Missing event `message.channels` / `message.groups` or scope `channels:history` / `groups:history`                                                                                                                  |
+| `The bot is already running in another process (PID …)` on start | Another instance is running (for example from Task Scheduler). Stop it first (`npm run unregister` or `Ctrl+C`)                                                                                                     |
+| `#N failed: Interrupted because the bot restarted.`              | The bot was stopped/restarted while the job was running; run the command again if needed                                                                                                                            |
+| `#N failed: spawn gcmd ENOENT`                                   | `gcmd` is not on the `PATH` of the account running the bot                                                                                                                                                          |
 
 ---
 
@@ -256,19 +256,22 @@ Each command is one file named `<name>.command.ts` in `src/commands/`. The bot l
 
 ```ts
 // src/commands/restart.command.ts
-import { validateTicket } from '../shared/validators.ts';
-import type { CommandDefinition } from '../types.ts';
+import { validateTicket } from "../shared/validators.ts";
+import type { CommandDefinition } from "../types.ts";
 
 export default {
-  name: 'restart',                                   // the word users type in chat
-  description: 'Restart the service of a ticket.',   // shown in the help text
-  usage: 'restart GCD-123',
-  queue: { name: 'restart', concurrency: 1 },        // 1 = sequential, N = up to N jobs in parallel
-  timeoutMs: 10 * 60 * 1000,                         // maximum run time, not counting time waiting for answers
-  promptPatterns: [/\[y\/n\]\s*$/i],                 // optional; an unfinished line that stays idle for 0.5 s also counts as a question
+  name: "restart", // the word users type in chat
+  description: "Restart the service of a ticket.", // shown in the help text
+  usage: "restart ABC-123",
+  queue: { name: "restart", concurrency: 1 }, // 1 = sequential, N = up to N jobs in parallel
+  timeoutMs: 10 * 60 * 1000, // maximum run time, not counting time waiting for answers
+  promptPatterns: [/\[y\/n\]\s*$/i], // optional; an unfinished line that stays idle for 0.5 s also counts as a question
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  build: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })  // the process to run
+  build: (input) => ({
+    file: "gcmd",
+    args: ["restart", "--ticket", input.ticket],
+  }), // the process to run
 } satisfies CommandDefinition;
 ```
 
@@ -289,7 +292,7 @@ Notes:
 
 ```powershell
 npm i -g ./tools/gcmd-command     # install
-gcmd deploy --ticket GCD-123      # try it by hand
+gcmd deploy --ticket ABC-123      # try it by hand
 npm rm -g gcmd-command            # remove it when using the real gcmd
 ```
 

@@ -1,4 +1,4 @@
-// Values a user typed for an command, after parse/validate (e.g. { ticket: 'GCD-123' }).
+// Values a user typed for an command, after parse/validate (e.g. { ticket: 'ABC-123' }).
 export type JobInput = Record<string, string>;
 
 export interface ProcessSpec {
@@ -53,12 +53,18 @@ export interface JobResult extends RunResult {
 }
 
 export type RunnerEvent =
-  | { type: 'output'; stream: 'stdout' | 'stderr'; text: string }
-  | { type: 'prompt'; text: string; expiresAt: string | null }
-  | { type: 'prompt-closed' }
-  | { type: 'input-received'; text: string };
+  | { type: "output"; stream: "stdout" | "stderr"; text: string }
+  | { type: "prompt"; text: string; expiresAt: string | null }
+  | { type: "prompt-closed" }
+  | { type: "input-received"; text: string };
 
-export type JobStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed' | 'cancelled';
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "waiting_input"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 
 // A job as stored in SQLite by the bot.
 export interface JobRecord {

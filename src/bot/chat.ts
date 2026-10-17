@@ -11,7 +11,7 @@ export function toPlainText(text: string | undefined): string {
 }
 
 export function createChatParser(commands: Command[]) {
-  // "<@U123> /deploy GCD-123" or "deploy GCD-123" → { command, args: 'GCD-123' }; unknown → null.
+  // "<@U123> /deploy ABC-123" or "deploy ABC-123" → { command, args: 'ABC-123' }; unknown → null.
   function parseCommand(
     text: string | undefined,
   ): { command: Command; args: string } | null {

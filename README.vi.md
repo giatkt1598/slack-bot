@@ -2,7 +2,7 @@
 
 [English](README.md) | **Tiếng Việt**
 
-Bot Slack nhận lệnh từ người dùng (ví dụ `deploy GCD-123`), xếp vào hàng đợi và chạy lệnh ngay trên máy Windows có `gcmd` — tất cả trong **một tiến trình Node.js**. Trong lúc lệnh chạy:
+Bot Slack nhận lệnh từ người dùng (ví dụ `deploy ABC-123`), xếp vào hàng đợi và chạy lệnh ngay trên máy Windows có `gcmd` — tất cả trong **một tiến trình Node.js**. Trong lúc lệnh chạy:
 
 - output của lệnh được stream trực tiếp vào thread Slack (một message log tự cập nhật);
 - khi lệnh hỏi (ví dụ `Are you sure? [Y/n]`), bot đăng `❓ [#N] <câu hỏi>`; người dùng reply trong thread và câu trả lời được đưa thẳng vào lệnh;
@@ -12,12 +12,12 @@ Tin nhắn của bot trên Slack đều bằng tiếng Anh.
 
 Lệnh có sẵn:
 
-| Lệnh | Chạy | Kiểu |
-|---|---|---|
-| `deploy GCD-123` | `gcmd deploy --ticket GCD-123` | Tuần tự (mỗi lần 1 job), có hỏi xác nhận |
-| `status GCD-123` | `gcmd status --ticket GCD-123` | Song song (tối đa 4 job) |
+| Lệnh                         | Chạy                                           | Kiểu                                               |
+| ---------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| `deploy ABC-123`             | `gcmd deploy --ticket ABC-123`                 | Tuần tự (mỗi lần 1 job), có hỏi xác nhận           |
+| `status ABC-123`             | `gcmd status --ticket ABC-123`                 | Song song (tối đa 4 job)                           |
 | `ipconfig` / `ipconfig /all` | `ipconfig` / `ipconfig /all` trên máy chạy bot | Song song (tối đa 4 job); chỉ nhận đúng 2 dạng này |
-| `systeminfo` | `systeminfo` trên máy chạy bot | Tuần tự; không nhận tham số; mất vài giây |
+| `systeminfo`                 | `systeminfo` trên máy chạy bot                 | Tuần tự; không nhận tham số; mất vài giây          |
 
 ## Kiến trúc
 
@@ -92,10 +92,10 @@ settings:
 
 Bot cần **cả hai** token:
 
-| Biến | Lấy ở đâu | Dùng để |
-|---|---|---|
+| Biến                         | Lấy ở đâu                                                                                                                    | Dùng để                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | `SLACK_APP_TOKEN` (`xapp-…`) | **Basic Information** → **App-Level Tokens** → **Generate Token and Scopes** → thêm scope `connections:write` → **Generate** | Mở kết nối Socket Mode, nhận event |
-| `SLACK_BOT_TOKEN` (`xoxb-…`) | **OAuth & Permissions** → **Install to Workspace** → **Allow** → copy **Bot User OAuth Token** | Gửi và cập nhật message |
+| `SLACK_BOT_TOKEN` (`xoxb-…`) | **OAuth & Permissions** → **Install to Workspace** → **Allow** → copy **Bot User OAuth Token**                               | Gửi và cập nhật message            |
 
 > Mỗi khi thay đổi scope hoặc event, Slack sẽ yêu cầu **Reinstall to Workspace** — phải cài lại thì thay đổi mới có hiệu lực.
 
@@ -126,13 +126,13 @@ copy .env.example .env
 
 Mở `.env` và điền:
 
-| Biến | Ý nghĩa | Mặc định |
-|---|---|---|
-| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` | Token ở bước trên | — |
-| `DATABASE_PATH` | File SQLite lưu lịch sử job; lock file nằm cùng thư mục | `./data/slack-bot.sqlite` |
-| `COMMAND_TIMEOUT_MS` | Thời gian chạy tối đa của lệnh (không tính lúc chờ trả lời) | 30 phút |
-| `INPUT_TIMEOUT_MS` | Thời gian chờ người dùng trả lời một câu hỏi, quá hạn thì huỷ lệnh | 30 phút |
-| `AUTHORIZED_CHANNEL_IDS`, `AUTHORIZED_USER_IDS` | Giới hạn kênh / người dùng | trống = tất cả |
+| Biến                                            | Ý nghĩa                                                            | Mặc định                  |
+| ----------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
+| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`            | Token ở bước trên                                                  | —                         |
+| `DATABASE_PATH`                                 | File SQLite lưu lịch sử job; lock file nằm cùng thư mục            | `./data/slack-bot.sqlite` |
+| `COMMAND_TIMEOUT_MS`                            | Thời gian chạy tối đa của lệnh (không tính lúc chờ trả lời)        | 30 phút                   |
+| `INPUT_TIMEOUT_MS`                              | Thời gian chờ người dùng trả lời một câu hỏi, quá hạn thì huỷ lệnh | 30 phút                   |
+| `AUTHORIZED_CHANNEL_IDS`, `AUTHORIZED_USER_IDS` | Giới hạn kênh / người dùng                                         | trống = tất cả            |
 
 ### Chạy bot
 
@@ -169,19 +169,19 @@ npm run unregister              # gỡ task (và folder), dừng bot mà task đ
 
 Có hai cách, kết quả như nhau:
 
-- **Nhắn riêng** cho bot: `deploy GCD-123`
-- **@mention** trong kênh: `@Command Runner deploy GCD-123`
+- **Nhắn riêng** cho bot: `deploy ABC-123`
+- **@mention** trong kênh: `@Command Runner deploy ABC-123`
 
-Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ gì bot không hiểu, bot sẽ trả lời `Supported commands:` kèm danh sách lệnh có thể dùng.
+Ticket phải có dạng `CHỮ-SỐ` (ví dụ `ABC-123`). Gõ bất kỳ thứ gì bot không hiểu, bot sẽ trả lời `Supported commands:` kèm danh sách lệnh có thể dùng.
 
 ### Theo dõi và trả lời
 
 **Nhắn riêng (DM):** bot trả lời thẳng vào cuộc trò chuyện, không dùng thread. Khi bot đăng `❓ [#N] …`, chỉ cần nhắn câu trả lời như tin nhắn bình thường:
 
 ```
-#1 Running `gcmd deploy --ticket GCD-123`
+#1 Running `gcmd deploy --ticket ABC-123`
 📜 Log #1 (running…)
-❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
+❓ [#1] Are you sure you want to deploy ABC-123 to production? [Y/n]
 Y                                                 ← bạn nhắn
 ❓ [#1] Release note (optional):
 fix login                                         ← bạn nhắn
@@ -193,9 +193,9 @@ fix login                                         ← bạn nhắn
 **Trong kênh:** mọi cập nhật của job nằm trong thread của message `#N Running …` (hoặc thread nơi bạn @mention bot):
 
 ```
-#1 Running `gcmd deploy --ticket GCD-123`
+#1 Running `gcmd deploy --ticket ABC-123`
   └ 📜 Log #1 (running…)                          ← tự cập nhật ~2 giây/lần
-  └ ❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
+  └ ❓ [#1] Are you sure you want to deploy ABC-123 to production? [Y/n]
   └ (bạn reply: Y)                                ← bot không trả lời, câu trả lời hiện trong log
   └ ❓ [#1] Release note (optional):
   └ (bạn reply: fix login)
@@ -207,7 +207,7 @@ fix login                                         ← bạn nhắn
 - Message log hiện **10.000 ký tự cuối** của output. Lệnh in nhiều hơn thì phần đầu bị cắt (log bắt đầu bằng `…`). Slack tự cắt message ở 40.000 ký tự, nên giới hạn này (`MAX_CHARS` trong `src/bot/logStream.ts`) không thể nâng lên vô hạn.
 - Không ai trả lời sau `INPUT_TIMEOUT_MS` (mặc định 30 phút) → lệnh bị huỷ: `#1 failed: No answer received in time (30 minutes).`
 - Các job `deploy` chạy lần lượt — job sau ở trạng thái chờ cho tới khi job trước xong (và đã báo `completed`/`failed`). Các job `status` chạy song song.
-- Nếu job phải chờ (đã có job đang đợi, hoặc mọi suất chạy đều bận), bot báo trước `Added #4 \`gcmd deploy --ticket GCD-111\` to the queue`, rồi khi job bắt đầu chạy mới báo `#4 Running …`. Job chạy được ngay thì chỉ có message `#4 Running …`.
+- Nếu job phải chờ (đã có job đang đợi, hoặc mọi suất chạy đều bận), bot báo trước `Added #4 \`gcmd deploy --ticket ABC-111\` to the queue`, rồi khi job bắt đầu chạy mới báo `#4 Running …`. Job chạy được ngay thì chỉ có message `#4 Running …`.
 
 ### Xem hàng đợi
 
@@ -216,10 +216,10 @@ Gõ `queue` (trong DM, khi @mention bot, hoặc reply trong thread của một j
 ```
 📋 Queue
 *deploy* (sequential)
-• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · Gia
-• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · Gia
+• #15 `gcmd deploy --ticket ABC-1` — ❓ waiting for an answer · Gia
+• #16 `gcmd deploy --ticket ABC-2` — ⏳ queued (position 1) · Gia
 *status* (up to 4 in parallel)
-• #18 `gcmd status --ticket GCD-9` — ▶️ running · Gia
+• #18 `gcmd status --ticket ABC-9` — ▶️ running · Gia
 ```
 
 Danh sách hiện **tất cả** job, kể cả job bắt đầu trong DM của người khác. Người tạo job hiển thị bằng tên thường, không bao giờ là @mention nên xem hàng đợi không làm phiền ai (tên được tra bằng scope `users:read`; nếu thiếu scope hoặc tra lỗi thì hiện user ID). Lệnh không có job nào sẽ không được liệt kê; nếu tất cả đều trống, bot trả lời `📋 The queue is empty…`. Giống `cancel`, `queue` luôn được hiểu là lệnh của bot, kể cả khi có job trong DM đang chờ trả lời.
@@ -228,12 +228,12 @@ Danh sách hiện **tất cả** job, kể cả job bắt đầu trong DM của 
 
 Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply trong thread của job:
 
-| Trạng thái job | Bot làm gì |
-|---|---|
-| Đang xếp hàng | Gỡ khỏi hàng đợi, báo `#3 cancelled by @bạn` |
-| Đang chạy / đang chờ trả lời | Kill lệnh (cả các tiến trình con), báo `#3 cancelled by @bạn` |
-| Đã xong (hoàn tất, thất bại hoặc đã huỷ) | Trả lời `#3 has already finished.` |
-| Không có job số đó | Trả lời `#3 not found.` |
+| Trạng thái job                           | Bot làm gì                                                    |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| Đang xếp hàng                            | Gỡ khỏi hàng đợi, báo `#3 cancelled by @bạn`                  |
+| Đang chạy / đang chờ trả lời             | Kill lệnh (cả các tiến trình con), báo `#3 cancelled by @bạn` |
+| Đã xong (hoàn tất, thất bại hoặc đã huỷ) | Trả lời `#3 has already finished.`                            |
+| Không có job số đó                       | Trả lời `#3 not found.`                                       |
 
 - `cancel` luôn được hiểu là lệnh huỷ, kể cả khi job trong DM đang chờ trả lời.
 - Thông báo huỷ được đăng ở nơi của job (DM hoặc thread của job). Nếu bạn gõ `cancel` ở chỗ khác, bot trả lời thêm `Cancelling #3…` ngay tại chỗ đó.
@@ -242,13 +242,13 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 ### Khi có sự cố
 
-| Hiện tượng | Nguyên nhân thường gặp |
-|---|---|
-| Bot không phản hồi gì | Bot chưa chạy (`npm run start` / `npm run register`, xem `data/bot.log`), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
-| Reply trong thread bị bỏ qua | Thiếu event `message.channels` / `message.groups` hoặc scope `channels:history` / `groups:history` |
-| `The bot is already running in another process (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước (`npm run unregister` hoặc `Ctrl+C`) |
-| `#N failed: Interrupted because the bot restarted.` | Bot bị tắt/khởi động lại khi job đang chạy; chạy lại lệnh nếu cần |
-| `#N failed: spawn gcmd ENOENT` | `gcmd` không nằm trong `PATH` của tài khoản chạy bot |
+| Hiện tượng                                                            | Nguyên nhân thường gặp                                                                                                                                                             |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bot không phản hồi gì                                                 | Bot chưa chạy (`npm run start` / `npm run register`, xem `data/bot.log`), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
+| Reply trong thread bị bỏ qua                                          | Thiếu event `message.channels` / `message.groups` hoặc scope `channels:history` / `groups:history`                                                                                 |
+| `The bot is already running in another process (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước (`npm run unregister` hoặc `Ctrl+C`)                                                                           |
+| `#N failed: Interrupted because the bot restarted.`                   | Bot bị tắt/khởi động lại khi job đang chạy; chạy lại lệnh nếu cần                                                                                                                  |
+| `#N failed: spawn gcmd ENOENT`                                        | `gcmd` không nằm trong `PATH` của tài khoản chạy bot                                                                                                                               |
 
 ---
 
@@ -258,19 +258,22 @@ Mỗi lệnh là một **command**: một file `<tên>.command.ts` trong `src/co
 
 ```ts
 // src/commands/restart.command.ts
-import { validateTicket } from '../shared/validators.ts';
-import type { CommandDefinition } from '../types.ts';
+import { validateTicket } from "../shared/validators.ts";
+import type { CommandDefinition } from "../types.ts";
 
 export default {
-  name: 'restart',                                   // từ khoá lệnh khi chat
-  description: 'Restart the service of a ticket.',   // hiện trong help text (tiếng Anh)
-  usage: 'restart GCD-123',
-  queue: { name: 'restart', concurrency: 1 },        // 1 = tuần tự, N = tối đa N job song song
-  timeoutMs: 10 * 60 * 1000,                         // thời gian chạy tối đa, không tính lúc chờ trả lời
-  promptPatterns: [/\[y\/n\]\s*$/i],                 // tuỳ chọn; dòng chưa kết thúc mà im lặng 0.5 giây cũng được coi là câu hỏi
+  name: "restart", // từ khoá lệnh khi chat
+  description: "Restart the service of a ticket.", // hiện trong help text (tiếng Anh)
+  usage: "restart ABC-123",
+  queue: { name: "restart", concurrency: 1 }, // 1 = tuần tự, N = tối đa N job song song
+  timeoutMs: 10 * 60 * 1000, // thời gian chạy tối đa, không tính lúc chờ trả lời
+  promptPatterns: [/\[y\/n\]\s*$/i], // tuỳ chọn; dòng chưa kết thúc mà im lặng 0.5 giây cũng được coi là câu hỏi
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  build: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })  // tiến trình sẽ chạy
+  build: (input) => ({
+    file: "gcmd",
+    args: ["restart", "--ticket", input.ticket],
+  }), // tiến trình sẽ chạy
 } satisfies CommandDefinition;
 ```
 
@@ -291,7 +294,7 @@ Lưu ý:
 
 ```powershell
 npm i -g ./tools/gcmd-command     # cài
-gcmd deploy --ticket GCD-123      # thử tay
+gcmd deploy --ticket ABC-123      # thử tay
 npm rm -g gcmd-command            # gỡ khi dùng gcmd thật
 ```
 

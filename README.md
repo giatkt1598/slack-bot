@@ -246,6 +246,7 @@ Type `cancel #3` (or `cancel 3`) — in a DM, when @mentioning the bot, or as a 
 | `The bot is already running in another process (PID …)` on start | Another instance is running (for example from Task Scheduler). Stop it first (`npm run unregister` or `Ctrl+C`)                                                                                                     |
 | `#N failed: Interrupted because the bot restarted.`              | The bot was stopped/restarted while the job was running; run the command again if needed                                                                                                                            |
 | `#N failed: spawn gcmd ENOENT`                                   | `gcmd` is not on the `PATH` of the account running the bot                                                                                                                                                          |
+| `queue` shows user IDs (`U0123…`) instead of names               | The name lookup failed — usually the app is missing the `users:read` scope or wasn't reinstalled after adding it. The bot log shows `[queue] could not look up the name of …` with the Slack error code              |
 
 ---
 

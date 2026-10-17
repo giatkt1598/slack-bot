@@ -10,6 +10,7 @@ import { createChatParser, isQueueCommand, parseCancel, toPlainText } from './bo
 import { formatQueueStatus, queueUserIds } from './bot/queueStatus.ts';
 import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage, mentionCreator } from './bot/jobs.ts';
 import { createLogStreams } from './bot/logStream.ts';
+import { createUserNameResolver } from './bot/userNames.ts';
 import type { Command, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
 
 type Reply = (text: string) => Promise<unknown>;
@@ -52,22 +53,7 @@ function postToThread(job: JobRecord, text: string): Promise<unknown> {
   return app.client.chat.postMessage({ channel: job.channelId, thread_ts: job.threadTs, text }).catch(console.error);
 }
 
-const userNames = new Map<string, string>();
-
-// A user's display name as plain text (never an @mention, so listing the queue notifies nobody).
-// Needs the `users:read` scope; without it, or on any lookup error, the user ID is shown instead.
-async function resolveUserName(userId: string): Promise<string> {
-  const cached = userNames.get(userId);
-  if (cached) return cached;
-  try {
-    const { user } = await app.client.users.info({ user: userId });
-    const name = user?.profile?.display_name || user?.real_name || user?.name || userId;
-    userNames.set(userId, name);
-    return name;
-  } catch {
-    return userId;
-  }
-}
+const resolveUserName = createUserNameResolver(app.client);
 
 const newJobId = () => toJobId(++lastJobNumber);
 

@@ -248,6 +248,7 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 | `The bot is already running in another process (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước (`npm run unregister` hoặc `Ctrl+C`)                                                                           |
 | `#N failed: Interrupted because the bot restarted.`                   | Bot bị tắt/khởi động lại khi job đang chạy; chạy lại lệnh nếu cần                                                                                                                  |
 | `#N failed: spawn gcmd ENOENT`                                        | `gcmd` không nằm trong `PATH` của tài khoản chạy bot                                                                                                                               |
+| `queue` hiện user ID (`U0123…`) thay vì tên                           | Tra tên thất bại — thường do app thiếu scope `users:read` hoặc chưa Reinstall sau khi thêm. Log của bot in `[queue] could not look up the name of …` kèm mã lỗi của Slack          |
 
 ---
 

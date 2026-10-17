@@ -11,3 +11,12 @@ export interface SlackClient {
     update(message: SlackMessage & { ts: string }): Promise<unknown>;
   };
 }
+
+// users.info (needs the `users:read` scope), used to show creators by name in `queue`.
+export interface SlackUsersClient {
+  users: {
+    info(args: { user: string }): Promise<{
+      user?: { name?: string; real_name?: string; profile?: { display_name?: string; real_name?: string } };
+    }>;
+  };
+}

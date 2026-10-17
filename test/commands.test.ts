@@ -42,7 +42,7 @@ test('returns null for unknown or empty text', () => {
 
 test('help text lists every registered action', () => {
   const text = helpText();
-  assert.match(text, /^Tôi chưa hiểu ý bạn/);
+  assert.match(text, /^Những lệnh được hỗ trợ:/);
   for (const { usage } of actions) assert.ok(text.includes(usage));
   assert.ok(text.includes('cancel #3'));
   assert.ok(text.includes('`queue`'));

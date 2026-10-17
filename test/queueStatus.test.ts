@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { formatQueueStatus } from '../src/bot/queueStatus.ts';
 import type { QueueSnapshot } from '../src/worker/scheduler.ts';
 import type { JobRecord, JobStatus } from '../src/types.ts';
-import { bundledAction } from './helpers.ts';
+import { bundledCommand } from './helpers.ts';
 
-const deploy = bundledAction('deploy');
-const status = bundledAction('status');
-const job = (id: string, action = deploy, ticket = 'GCD-1') => ({ id, action, input: { ticket } });
+const deploy = bundledCommand('deploy');
+const status = bundledCommand('status');
+const job = (id: string, command = deploy, ticket = 'GCD-1') => ({ id, command, input: { ticket } });
 
 function records(statuses: Record<string, JobStatus>) {
   return (jobId: string): JobRecord | null => statuses[jobId]
-    ? { id: jobId, action: 'deploy', input: {}, status: statuses[jobId], channelId: 'C1', threadTs: undefined, userId: 'U1', announced: true }
+    ? { id: jobId, command: 'deploy', input: {}, status: statuses[jobId], channelId: 'C1', threadTs: undefined, userId: 'U1', announced: true }
     : null;
 }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { actions } from '../src/actions/index.ts';
-import { createCommands, isQueueCommand, parseCancel, toPlainText } from '../src/bot/commands.ts';
+import { commands } from '../src/commands/index.ts';
+import { createChatParser, isQueueCommand, parseCancel, toPlainText } from '../src/bot/chat.ts';
 
 test('isQueueCommand matches only the bare "queue" command', () => {
   for (const text of ['queue', 'Queue', ' queue ', '/queue', '<@U1> queue']) assert.equal(isQueueCommand(text), true);
@@ -20,10 +20,10 @@ test('parseCancel accepts "cancel #N" in its usual spellings', () => {
   }
 });
 
-const { parseCommand, helpText } = createCommands(actions);
+const { parseCommand, helpText } = createChatParser(commands);
 const parsed = (text: string | undefined) => {
   const result = parseCommand(text);
-  return result && { name: result.action.name, args: result.args };
+  return result && { name: result.command.name, args: result.args };
 };
 
 test('parses commands from mentions and DMs, with or without slash', () => {
@@ -40,10 +40,10 @@ test('returns null for unknown or empty text', () => {
   }
 });
 
-test('help text lists every registered action', () => {
+test('help text lists every registered command', () => {
   const text = helpText();
   assert.match(text, /^Những lệnh được hỗ trợ:/);
-  for (const { usage } of actions) assert.ok(text.includes(usage));
+  for (const { usage } of commands) assert.ok(text.includes(usage));
   assert.ok(text.includes('cancel #3'));
   assert.ok(text.includes('`queue`'));
 });

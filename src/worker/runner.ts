@@ -1,13 +1,13 @@
 import spawn from 'cross-spawn';
 import { execFile } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import type { CommandSpec, RunResult, RunnerEvent } from '../types.ts';
+import type { ProcessSpec, RunResult, RunnerEvent } from '../types.ts';
 
 const TAIL_CHARS = 4000;
 const PROMPT_IDLE_MS = 500;
 const KILL_GRACE_MS = 5000;
 
-export interface RunOptions extends CommandSpec {
+export interface RunOptions extends ProcessSpec {
   timeoutMs?: number;
   inputTimeoutMs?: number;
   promptPatterns?: RegExp[];

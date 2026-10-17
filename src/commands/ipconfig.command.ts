@@ -1,4 +1,4 @@
-import type { ActionDefinition } from '../types.ts';
+import type { CommandDefinition } from '../types.ts';
 
 // Allowlisted arguments only: chat text never reaches the command line as-is.
 const modes: Record<string, string[]> = {
@@ -19,5 +19,5 @@ export default {
     if (!(mode in modes)) throw new Error('Chỉ hỗ trợ `ipconfig` hoặc `ipconfig /all`.');
     return { mode: modes[mode].length ? '/all' : '' };
   },
-  command: (input) => ({ file: 'ipconfig', args: modes[input.mode ?? ''] ?? [] })
-} satisfies ActionDefinition;
+  build: (input) => ({ file: 'ipconfig', args: modes[input.mode ?? ''] ?? [] })
+} satisfies CommandDefinition;

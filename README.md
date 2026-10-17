@@ -141,7 +141,7 @@ npm run start   # dev: nodemon, tự reload khi sửa file trong src/ hoặc .en
 npm run serve   # chạy một lần, không reload
 ```
 
-Phải thấy `⚡ Slack bot is running in Socket Mode (actions: …)`. `gcmd` phải nằm trong `PATH` của tài khoản chạy bot. Dừng bằng `Ctrl+C`.
+Phải thấy `⚡ Slack bot is running in Socket Mode (commands: …)`. `gcmd` phải nằm trong `PATH` của tài khoản chạy bot. Dừng bằng `Ctrl+C`.
 
 > Mỗi lần nodemon reload, các lệnh đang chạy (ví dụ deploy đang chờ `[Y/n]`) bị kill và báo `#N thất bại: Bị gián đoạn do bot khởi động lại.` Vì vậy chỉ dùng `npm run start` khi phát triển.
 
@@ -251,12 +251,12 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 ## 4. Thêm lệnh mới
 
-Tạo một file trong `src/actions/` — bot tự nạp, help text và cú pháp chat tự cập nhật:
+Mỗi lệnh là một **command**: một file `<tên>.command.ts` trong `src/commands/`. Bot tự nạp mọi file `*.command.ts`; help text và cú pháp chat tự cập nhật:
 
 ```ts
-// src/actions/restart.ts
+// src/commands/restart.command.ts
 import { validateTicket } from '../shared/validators.ts';
-import type { ActionDefinition } from '../types.ts';
+import type { CommandDefinition } from '../types.ts';
 
 export default {
   name: 'restart',                                   // từ khoá lệnh khi chat
@@ -268,8 +268,8 @@ export default {
   promptPatterns: [/\[y\/n\]\s*$/i],                 // tuỳ chọn; dòng chưa kết thúc mà im lặng 0.5 giây cũng được coi là câu hỏi
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  command: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })
-} satisfies ActionDefinition;
+  build: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })  // tiến trình sẽ chạy
+} satisfies CommandDefinition;
 ```
 
 Lưu ý:

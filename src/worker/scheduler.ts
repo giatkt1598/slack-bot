@@ -1,10 +1,10 @@
 import { runCommand } from './runner.ts';
 import type { RunningCommand } from './runner.ts';
-import type { Action, JobInput, JobResult, QueueGroup, RunnerEvent } from '../types.ts';
+import type { Command, JobInput, JobResult, QueueGroup, RunnerEvent } from '../types.ts';
 
 export interface ScheduledJob {
   id: string;
-  action: Action;
+  command: Command;
   input: JobInput;
 }
 
@@ -61,13 +61,13 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     await onStart(job);
     let run: RunningCommand;
     try {
-      const { file, args } = job.action.command(job.action.validate(job.input));
+      const { file, args } = job.command.build(job.command.validate(job.input));
       run = runCommand({
         file,
         args,
-        timeoutMs: job.action.timeoutMs,
+        timeoutMs: job.command.timeoutMs,
         inputTimeoutMs,
-        promptPatterns: job.action.promptPatterns,
+        promptPatterns: job.command.promptPatterns,
         onEvent: (event) => onEvent(job.id, event)
       });
     } catch (error) {
@@ -103,7 +103,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
 
   return {
     enqueue(job: ScheduledJob): void {
-      const state = stateFor(job.action.queue.name);
+      const state = stateFor(job.command.queue.name);
       state.waiting.push(job);
       pump(state);
     },

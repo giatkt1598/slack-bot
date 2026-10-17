@@ -10,7 +10,7 @@ export function formatQueueStatus(queues: QueueSnapshot[], lookup: (jobId: strin
       const mode = queue.concurrency === 1 ? 'tuần tự' : `tối đa ${queue.concurrency} job song song`;
       const line = (job: QueueSnapshot['active'][number], state: string) => {
         const user = lookup(job.id)?.userId;
-        return `• ${jobLabel(job.id)} \`${formatCommand(job.action.command(job.input))}\` — ${state}${user ? ` · <@${user}>` : ''}`;
+        return `• ${jobLabel(job.id)} \`${formatCommand(job.command.build(job.input))}\` — ${state}${user ? ` · <@${user}>` : ''}`;
       };
       const running = queue.active.map((job) =>
         line(job, lookup(job.id)?.status === 'waiting_input' ? '❓ đang chờ trả lời' : '▶️ đang chạy'));

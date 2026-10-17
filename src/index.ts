@@ -2,15 +2,15 @@ import path from 'node:path';
 import { App } from '@slack/bolt';
 import type { Logger } from '@slack/bolt';
 import { config, assertBotConfig, isAuthorized } from './config.ts';
-import * as registry from './actions/index.ts';
+import * as registry from './commands/index.ts';
 import { acquireLock } from './shared/lock.ts';
 import { createDatabase, updateJob, getJob, listJobs, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from './shared/db.ts';
 import { createScheduler } from './worker/scheduler.ts';
-import { createCommands, isQueueCommand, parseCancel, toPlainText } from './bot/commands.ts';
+import { createChatParser, isQueueCommand, parseCancel, toPlainText } from './bot/chat.ts';
 import { formatQueueStatus } from './bot/queueStatus.ts';
 import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage } from './bot/jobs.ts';
 import { createLogStreams } from './bot/logStream.ts';
-import type { Action, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
+import type { Command, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
 
 type Reply = (text: string) => Promise<unknown>;
 // Where a user typed something: a conversation, plus the thread inside it (undefined = top level / DM).
@@ -28,7 +28,7 @@ process.on('exit', releaseLock);
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => process.exit(0));
 
 const app = new App({ token: botToken, appToken, socketMode: true });
-const { parseCommand, helpText } = createCommands(registry.actions);
+const { parseCommand, helpText } = createChatParser(registry.commands);
 const logs = createLogStreams(app.client);
 const db = await createDatabase(config.databasePath);
 // Only one process runs (see acquireLock), so an in-memory counter seeded from the DB is enough.
@@ -54,8 +54,8 @@ function postToThread(job: JobRecord, text: string): Promise<unknown> {
 
 const newJobId = () => toJobId(++lastJobNumber);
 
-function enqueue(action: Action, input: JobInput, slack: { channelId: string; userId: string; replyThreadTs?: string; jobId?: string }) {
-  return enqueueJob({ client: app.client, db, scheduler, action, input, ...slack, jobId: slack.jobId || newJobId() });
+function enqueue(command: Command, input: JobInput, slack: { channelId: string; userId: string; replyThreadTs?: string; jobId?: string }) {
+  return enqueueJob({ client: app.client, db, scheduler, command, input, ...slack, jobId: slack.jobId || newJobId() });
 }
 
 // --- Incoming Slack messages -------------------------------------------------------------------
@@ -64,19 +64,19 @@ async function runChatCommand({ text, channel, user, reply, replyThreadTs, logge
   { text: string | undefined; channel: string; user: string; reply: Reply; replyThreadTs?: string; logger: Logger }) {
   const parsed = parseCommand(text);
   if (!parsed) return reply(helpText());
-  const { action, args } = parsed;
-  if (!isAuthorized(channel, user)) return reply(`Bạn không có quyền chạy ${action.name}.`);
+  const { command, args } = parsed;
+  if (!isAuthorized(channel, user)) return reply(`Bạn không có quyền chạy ${command.name}.`);
   let input: JobInput;
   try {
-    input = action.validate(action.parse(args));
+    input = command.validate(command.parse(args));
   } catch (error) {
     return reply((error as Error).message);
   }
   try {
-    await enqueue(action, input, { channelId: channel, userId: user, replyThreadTs });
+    await enqueue(command, input, { channelId: channel, userId: user, replyThreadTs });
   } catch (error) {
     logger.error(error);
-    await reply(`❌ Không thể xếp hàng ${action.name}: ${(error as Error).message}`);
+    await reply(`❌ Không thể xếp hàng ${command.name}: ${(error as Error).message}`);
   }
 }
 
@@ -154,23 +154,23 @@ app.event('app_mention', async ({ event, say, logger }) => {
   await runChatCommand({ text: event.text, channel: event.channel, user, reply, replyThreadTs, logger });
 });
 
-for (const action of registry.actions) {
-  if (!action.slashCommand) continue;
-  app.command(action.slashCommand, async ({ command, ack, logger }) => {
-    if (!isAuthorized(command.channel_id, command.user_id)) {
-      await ack({ response_type: 'ephemeral', text: `Bạn không có quyền chạy ${action.name}.` });
+for (const command of registry.commands) {
+  if (!command.slashCommand) continue;
+  app.command(command.slashCommand, async ({ command: slash, ack, logger }) => {
+    if (!isAuthorized(slash.channel_id, slash.user_id)) {
+      await ack({ response_type: 'ephemeral', text: `Bạn không có quyền chạy ${command.name}.` });
       return;
     }
     let input: JobInput;
     try {
-      input = action.validate(action.parse(command.text));
+      input = command.validate(command.parse(slash.text));
     } catch (error) {
       await ack({ response_type: 'ephemeral', text: (error as Error).message });
       return;
     }
     const jobId = newJobId();
-    await ack({ response_type: 'ephemeral', text: `Đã nhận yêu cầu ${action.name} ${jobLabel(jobId)}.` });
-    await enqueue(action, input, { channelId: command.channel_id, userId: command.user_id, jobId })
+    await ack({ response_type: 'ephemeral', text: `Đã nhận yêu cầu ${command.name} ${jobLabel(jobId)}.` });
+    await enqueue(command, input, { channelId: slash.channel_id, userId: slash.user_id, jobId })
       .catch((error) => logger.error(error));
   });
 }
@@ -182,8 +182,8 @@ async function onStart({ id: jobId }: { id: string }): Promise<void> {
   if (!job) return;
   updateJob(db, jobId, { status: 'running', startedAt: new Date().toISOString(), announced: 1 });
   // Jobs that had to wait were announced as "Đã thêm … vào hàng đợi"; say they are running now.
-  const action = registry.getAction(job.action);
-  if (!job.announced && action) await postToThread(job, runningMessage(jobId, action, job.input));
+  const command = registry.getCommand(job.command);
+  if (!job.announced && command) await postToThread(job, runningMessage(jobId, command, job.input));
   await logs.start(job);
 }
 
@@ -247,11 +247,11 @@ async function recoverJobs(): Promise<void> {
       updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString(), errorSummary: 'Job cũ (trước khi đánh số #N), không chạy lại.' });
       continue;
     }
-    const action = registry.getAction(job.action);
-    if (action) {
-      scheduler.enqueue({ id: job.id, action, input: job.input });
+    const command = registry.getCommand(job.command);
+    if (command) {
+      scheduler.enqueue({ id: job.id, command, input: job.input });
     } else {
-      updateJob(db, job.id, { status: 'failed', finishedAt: new Date().toISOString(), errorSummary: `Unknown action: ${job.action}` });
+      updateJob(db, job.id, { status: 'failed', finishedAt: new Date().toISOString(), errorSummary: `Unknown command: ${job.command}` });
     }
   }
 }
@@ -260,4 +260,4 @@ app.error(async (error) => console.error(error));
 
 await app.start();
 await recoverJobs();
-console.log(`⚡ Slack bot is running in Socket Mode (actions: ${registry.actions.map((action) => action.name).join(', ')})`);
+console.log(`⚡ Slack bot is running in Socket Mode (commands: ${registry.commands.map((command) => command.name).join(', ')})`);

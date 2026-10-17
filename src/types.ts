@@ -1,7 +1,7 @@
-// Values a user typed for an action, after parse/validate (e.g. { ticket: 'GCD-123' }).
+// Values a user typed for an command, after parse/validate (e.g. { ticket: 'GCD-123' }).
 export type JobInput = Record<string, string>;
 
-export interface CommandSpec {
+export interface ProcessSpec {
   file: string;
   args: string[];
 }
@@ -12,8 +12,8 @@ export interface QueueConfig {
   concurrency: number;
 }
 
-// What an action file in src/actions/ exports as default.
-export interface ActionDefinition {
+// What an command file in src/commands/ exports as default.
+export interface CommandDefinition {
   name: string;
   description: string;
   usage: string;
@@ -24,18 +24,18 @@ export interface ActionDefinition {
   promptPatterns?: RegExp[];
   parse(argsText: string): JobInput;
   validate(input: JobInput): JobInput;
-  command(input: JobInput): CommandSpec;
+  build(input: JobInput): ProcessSpec;
 }
 
-// An action after defaults are applied by the registry.
-export interface Action extends ActionDefinition {
+// An command after defaults are applied by the registry.
+export interface Command extends CommandDefinition {
   queue: QueueConfig;
   timeoutMs: number;
   promptPatterns: RegExp[];
 }
 
 export interface QueueGroup extends QueueConfig {
-  actions: string[];
+  commands: string[];
 }
 
 export interface RunResult {
@@ -64,7 +64,7 @@ export type JobStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | '
 // A job as stored in SQLite by the bot.
 export interface JobRecord {
   id: string;
-  action: string;
+  command: string;
   input: JobInput;
   status: JobStatus;
   channelId: string;

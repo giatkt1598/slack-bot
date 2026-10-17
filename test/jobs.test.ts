@@ -4,7 +4,7 @@ import { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage, promptMe
 import type { EnqueueOptions } from '../src/bot/jobs.ts';
 import type { SlackMessage } from '../src/bot/slack.ts';
 import { getJob } from '../src/shared/db.ts';
-import { bundledAction, tempDatabase } from './helpers.ts';
+import { bundledCommand, tempDatabase } from './helpers.ts';
 
 // A scheduler stand-in: `waits` is what mustWait answers; enqueued job ids are recorded.
 function fakeScheduler(waits = false) {
@@ -21,13 +21,13 @@ function fakeClient(ts: string) {
 
 test('says "Đã thêm … vào hàng đợi" only when the job has to wait', async (t) => {
   const { db } = await tempDatabase(t);
-  const deploy = bundledAction('deploy');
-  const status = bundledAction('status');
+  const deploy = bundledCommand('deploy');
+  const status = bundledCommand('status');
   const { client, posts } = fakeClient('1.1');
   const enqueued: string[] = [];
-  const enqueue = (action: typeof deploy, waits: boolean, jobId: string) => {
+  const enqueue = (command: typeof deploy, waits: boolean, jobId: string) => {
     const fake = fakeScheduler(waits);
-    return enqueueJob({ client, db, scheduler: fake.scheduler, action, input: { ticket: 'GCD-111' }, channelId: 'D1', userId: 'U1', jobId })
+    return enqueueJob({ client, db, scheduler: fake.scheduler, command, input: { ticket: 'GCD-111' }, channelId: 'D1', userId: 'U1', jobId })
       .then(() => enqueued.push(...fake.enqueued));
   };
 
@@ -63,7 +63,7 @@ test('isDirectMessage recognises DM conversation ids', () => {
 test('enqueueJob posts top-level in DMs and threads in channels', async (t) => {
   const { db } = await tempDatabase(t);
   const { client, posts } = fakeClient('200.1');
-  const options = { client, db, scheduler: fakeScheduler().scheduler, action: bundledAction('deploy'), input: { ticket: 'GCD-1' }, userId: 'U1' };
+  const options = { client, db, scheduler: fakeScheduler().scheduler, command: bundledCommand('deploy'), input: { ticket: 'GCD-1' }, userId: 'U1' };
 
   await enqueueJob({ ...options, channelId: 'D1', replyThreadTs: '9.9', jobId: 'job-1' });
   await enqueueJob({ ...options, channelId: 'C1', jobId: 'job-2' });
@@ -77,8 +77,8 @@ test('enqueueJob posts top-level in DMs and threads in channels', async (t) => {
   assert.equal(getJob(db, 'job-3')?.threadTs, '5.5');
 });
 
-test('formatCommand shows the exact command line an action will run', () => {
-  assert.equal(formatCommand(bundledAction('deploy').command({ ticket: 'GCD-11' })), 'gcmd deploy --ticket GCD-11');
+test('formatCommand shows the exact command line an command will run', () => {
+  assert.equal(formatCommand(bundledCommand('deploy').build({ ticket: 'GCD-11' })), 'gcmd deploy --ticket GCD-11');
 });
 
 test('job ids are BullMQ-safe and render as #N', () => {

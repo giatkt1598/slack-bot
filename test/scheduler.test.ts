@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defineActions } from '../src/actions/index.ts';
+import { defineCommands } from '../src/commands/index.ts';
 import { createScheduler } from '../src/worker/scheduler.ts';
-import type { ActionDefinition, JobResult, RunnerEvent } from '../src/types.ts';
+import type { CommandDefinition, JobResult, RunnerEvent } from '../src/types.ts';
 
 // Fast commands (node -e) instead of the gcmd mock, so these tests don't depend on its delays.
-const nodeScript = (name: string, script: string, queue: ActionDefinition['queue'], extra: Partial<ActionDefinition> = {}): ActionDefinition => ({
+const nodeScript = (name: string, script: string, queue: CommandDefinition['queue'], extra: Partial<CommandDefinition> = {}): CommandDefinition => ({
   name,
   description: name,
   usage: name,
@@ -15,11 +15,11 @@ const nodeScript = (name: string, script: string, queue: ActionDefinition['queue
     if (input.value === 'invalid') throw new Error('Giá trị không hợp lệ.');
     return input;
   },
-  command: () => ({ file: process.execPath, args: ['-e', script] }),
+  build: () => ({ file: process.execPath, args: ['-e', script] }),
   ...extra
 });
 
-const registry = defineActions([
+const registry = defineCommands([
   nodeScript('serial', 'setTimeout(() => console.log("done"), 150)', { name: 'serial', concurrency: 1 }),
   nodeScript('parallel', 'setTimeout(() => console.log("done"), 150)', { name: 'parallel', concurrency: 3 }),
   nodeScript('forever', 'setInterval(() => console.log("tick"), 50)', { name: 'forever', concurrency: 1 }),
@@ -58,8 +58,8 @@ function setup({ failReport = [] as string[] } = {}) {
       if (failReport.includes(jobId)) throw new Error(`report failed for ${jobId}`);
     }
   });
-  const enqueue = (id: string, actionName: string, value = '') =>
-    scheduler.enqueue({ id, action: registry.getAction(actionName)!, input: { value } });
+  const enqueue = (id: string, commandName: string, value = '') =>
+    scheduler.enqueue({ id, command: registry.getCommand(commandName)!, input: { value } });
   // Resolves when the scheduler hands the result to onFinish.
   const finished = (id: string) => results.has(id)
     ? Promise.resolve(results.get(id)!)

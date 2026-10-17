@@ -1,5 +1,5 @@
 import { validateTicket } from '../shared/validators.ts';
-import type { ActionDefinition } from '../types.ts';
+import type { CommandDefinition } from '../types.ts';
 
 export default {
   name: 'status',
@@ -9,5 +9,5 @@ export default {
   timeoutMs: 5 * 60 * 1000,
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  command: (input) => ({ file: 'gcmd', args: ['status', '--ticket', input.ticket] })
-} satisfies ActionDefinition;
+  build: (input) => ({ file: 'gcmd', args: ['status', '--ticket', input.ticket] })
+} satisfies CommandDefinition;

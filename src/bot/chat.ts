@@ -1,4 +1,4 @@
-import type { Action } from "../types.ts";
+import type { Command } from "../types.ts";
 
 // Turns Slack message text into plain text: drops user mentions and decodes Slack's HTML escaping.
 export function toPlainText(text: string | undefined): string {
@@ -10,15 +10,15 @@ export function toPlainText(text: string | undefined): string {
     .trim();
 }
 
-export function createCommands(actions: Action[]) {
-  // "<@U123> /deploy GCD-123" or "deploy GCD-123" → { action, args: 'GCD-123' }; unknown → null.
+export function createChatParser(commands: Command[]) {
+  // "<@U123> /deploy GCD-123" or "deploy GCD-123" → { command, args: 'GCD-123' }; unknown → null.
   function parseCommand(
     text: string | undefined,
-  ): { action: Action; args: string } | null {
+  ): { command: Command; args: string } | null {
     const words = toPlainText(text).split(/\s+/);
     const name = words[0].replace(/^\//, "").toLowerCase();
-    const action = actions.find((candidate) => candidate.name === name);
-    return action ? { action, args: words.slice(1).join(" ") } : null;
+    const command = commands.find((candidate) => candidate.name === name);
+    return command ? { command, args: words.slice(1).join(" ") } : null;
   }
 
   function helpText(): string {
@@ -32,7 +32,7 @@ export function createCommands(actions: Action[]) {
         description: "Huỷ job đang xếp hàng, đang chạy hoặc đang chờ trả lời.",
       },
     ];
-    const list = [...actions, ...builtins]
+    const list = [...commands, ...builtins]
       .map(({ usage, description }) => `• \`${usage}\` — ${description}`)
       .join("\n");
     return (

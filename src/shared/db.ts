@@ -14,7 +14,8 @@ export interface Database {
 
 export interface NewJob {
   id: string;
-  action: string;
+  // Stored in the `action` column (the name predates the action → command rename).
+  command: string;
   inputJson: string;
   channelId: string;
   // '' = no thread (DM conversation).
@@ -74,7 +75,7 @@ export function insertJob(database: Database, job: NewJob): void {
   db.run(`
     INSERT INTO jobs (id, action, input_json, status, slack_channel_id, slack_thread_ts, slack_user_id, created_at, announced)
     VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?)
-  `, [job.id, job.action, job.inputJson, job.channelId, job.threadTs, job.userId, job.createdAt, job.announced === false ? 0 : 1]);
+  `, [job.id, job.command, job.inputJson, job.channelId, job.threadTs, job.userId, job.createdAt, job.announced === false ? 0 : 1]);
   persist(db, filename);
 }
 
@@ -102,7 +103,7 @@ function queryOne(db: SqlDatabase, sql: string, params: SqlValue[]): ParamsObjec
 function toJob(row: ParamsObject | null): JobRecord | null {
   return row && {
     id: String(row.id),
-    action: String(row.action),
+    command: String(row.action),
     input: JSON.parse(String(row.input_json)),
     status: row.status as JobStatus,
     channelId: String(row.slack_channel_id),

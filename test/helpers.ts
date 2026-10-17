@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { TestContext } from 'node:test';
-import { actions } from '../src/actions/index.ts';
+import { commands } from '../src/commands/index.ts';
 import { createDatabase } from '../src/shared/db.ts';
-import type { Action } from '../src/types.ts';
+import type { Command } from '../src/types.ts';
 
 // A fresh SQLite file in a temp directory, removed when the test ends.
 export async function tempDatabase(t: TestContext) {
@@ -14,8 +14,8 @@ export async function tempDatabase(t: TestContext) {
   return { filename, db: await createDatabase(filename) };
 }
 
-export function bundledAction(name: string): Action {
-  const action = actions.find((candidate) => candidate.name === name);
-  if (!action) throw new Error(`No bundled action ${name}`);
-  return action;
+export function bundledCommand(name: string): Command {
+  const command = commands.find((candidate) => candidate.name === name);
+  if (!command) throw new Error(`No bundled command ${name}`);
+  return command;
 }

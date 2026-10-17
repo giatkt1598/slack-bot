@@ -154,27 +154,6 @@ app.event('app_mention', async ({ event, say, logger }) => {
   await runChatCommand({ text: event.text, channel: event.channel, user, reply, replyThreadTs, logger });
 });
 
-for (const command of registry.commands) {
-  if (!command.slashCommand) continue;
-  app.command(command.slashCommand, async ({ command: slash, ack, logger }) => {
-    if (!isAuthorized(slash.channel_id, slash.user_id)) {
-      await ack({ response_type: 'ephemeral', text: `You are not allowed to run ${command.name}.` });
-      return;
-    }
-    let input: JobInput;
-    try {
-      input = command.validate(command.parse(slash.text));
-    } catch (error) {
-      await ack({ response_type: 'ephemeral', text: (error as Error).message });
-      return;
-    }
-    const jobId = newJobId();
-    await ack({ response_type: 'ephemeral', text: `Received ${command.name} request ${jobLabel(jobId)}.` });
-    await enqueue(command, input, { channelId: slash.channel_id, userId: slash.user_id, jobId })
-      .catch((error) => logger.error(error));
-  });
-}
-
 // --- Job progress (scheduler callbacks) --------------------------------------------------------
 
 async function onStart({ id: jobId }: { id: string }): Promise<void> {

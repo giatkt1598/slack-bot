@@ -52,18 +52,12 @@ features:
   bot_user:
     display_name: Command Runner
     always_online: true
-  slash_commands:
-    - command: /deploy
-      description: Deploy a ticket via gcmd
-      usage_hint: GCD-123
-      should_escape: false
 oauth_config:
   scopes:
     bot:
       - app_mentions:read
       - channels:history
       - chat:write
-      - commands
       - groups:history
       - im:history
 settings:
@@ -87,11 +81,10 @@ settings:
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch** → đặt tên, chọn workspace.
 2. **Socket Mode** → bật **Enable Socket Mode**.
 3. **OAuth & Permissions** → **Bot Token Scopes** → thêm:
-   `app_mentions:read`, `channels:history`, `chat:write`, `commands`, `groups:history`, `im:history`.
+   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`.
 4. **Event Subscriptions** → bật **Enable Events** → **Subscribe to bot events** → thêm:
    `app_mention`, `message.channels`, `message.groups`, `message.im` → **Save Changes**.
-5. **Slash Commands** → **Create New Command** → Command `/deploy`, Short Description `Deploy a ticket via gcmd`, Usage Hint `GCD-123` → **Save**.
-6. **App Home** → mục **Show Tabs** → bật **Messages Tab** và tick **Allow users to send Slash commands and messages from the messages tab**.
+5. **App Home** → mục **Show Tabs** → bật **Messages Tab** và tick **Allow users to send Slash commands and messages from the messages tab**.
 
 ### Lấy token
 
@@ -170,11 +163,10 @@ npm run unregister              # gỡ task (và folder), dừng bot mà task đ
 
 ### Gửi lệnh
 
-Có ba cách, kết quả như nhau:
+Có hai cách, kết quả như nhau:
 
 - **Nhắn riêng** cho bot: `deploy GCD-123`
 - **@mention** trong kênh: `@Command Runner deploy GCD-123`
-- **Slash command**: `/deploy GCD-123`
 
 Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ gì bot không hiểu, bot sẽ trả lời `Supported commands:` kèm danh sách lệnh có thể dùng.
 
@@ -267,7 +259,6 @@ export default {
   name: 'restart',                                   // từ khoá lệnh khi chat
   description: 'Restart the service of a ticket.',   // hiện trong help text (tiếng Anh)
   usage: 'restart GCD-123',
-  slashCommand: '/restart',                          // tuỳ chọn; phải tạo thêm slash command trong Slack app
   queue: { name: 'restart', concurrency: 1 },        // 1 = tuần tự, N = tối đa N job song song
   timeoutMs: 10 * 60 * 1000,                         // thời gian chạy tối đa, không tính lúc chờ trả lời
   promptPatterns: [/\[y\/n\]\s*$/i],                 // tuỳ chọn; dòng chưa kết thúc mà im lặng 0.5 giây cũng được coi là câu hỏi

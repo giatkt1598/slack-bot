@@ -17,7 +17,6 @@ export interface CommandDefinition {
   name: string;
   description: string;
   usage: string;
-  slashCommand?: string;
   queue?: Partial<QueueConfig>;
   // Runtime limit, excluding time spent waiting for input.
   timeoutMs?: number;

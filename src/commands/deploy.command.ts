@@ -6,7 +6,6 @@ export default {
   name: 'deploy',
   description: 'Run `gcmd deploy --ticket <TICKET>` (sequential, asks for confirmation).',
   usage: 'deploy GCD-123',
-  slashCommand: '/deploy',
   queue: { name: 'deploy', concurrency: 1 },
   timeoutMs: config.commandTimeoutMs,
   promptPatterns: [/\[y\/n\]\s*$/i],

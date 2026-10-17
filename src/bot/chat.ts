@@ -37,7 +37,7 @@ export function createChatParser(commands: Command[]) {
       .join("\n");
     return (
       `Supported commands:\n${list}\n` +
-      "_Send it in a DM, @mention me, or use a slash command. When a command asks something, reply in its thread (in a DM, just send the answer)._"
+      "_Send it in a DM or @mention me. When a command asks something, reply in its thread (in a DM, just send the answer)._"
     );
   }
 

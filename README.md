@@ -50,18 +50,12 @@ features:
   bot_user:
     display_name: Command Runner
     always_online: true
-  slash_commands:
-    - command: /deploy
-      description: Deploy a ticket via gcmd
-      usage_hint: GCD-123
-      should_escape: false
 oauth_config:
   scopes:
     bot:
       - app_mentions:read
       - channels:history
       - chat:write
-      - commands
       - groups:history
       - im:history
 settings:
@@ -85,11 +79,10 @@ settings:
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch** → name it, pick the workspace.
 2. **Socket Mode** → turn on **Enable Socket Mode**.
 3. **OAuth & Permissions** → **Bot Token Scopes** → add:
-   `app_mentions:read`, `channels:history`, `chat:write`, `commands`, `groups:history`, `im:history`.
+   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`.
 4. **Event Subscriptions** → turn on **Enable Events** → **Subscribe to bot events** → add:
    `app_mention`, `message.channels`, `message.groups`, `message.im` → **Save Changes**.
-5. **Slash Commands** → **Create New Command** → Command `/deploy`, Short Description `Deploy a ticket via gcmd`, Usage Hint `GCD-123` → **Save**.
-6. **App Home** → **Show Tabs** → turn on **Messages Tab** and tick **Allow users to send Slash commands and messages from the messages tab**.
+5. **App Home** → **Show Tabs** → turn on **Messages Tab** and tick **Allow users to send Slash commands and messages from the messages tab**.
 
 ### Get the tokens
 
@@ -168,11 +161,10 @@ npm run unregister              # remove the task (and its folder), stop the bot
 
 ### Sending a command
 
-Three ways, same result:
+Two ways, same result:
 
 - **Direct message** to the bot: `deploy GCD-123`
 - **@mention** in a channel: `@Command Runner deploy GCD-123`
-- **Slash command**: `/deploy GCD-123`
 
 Tickets must look like `LETTERS-NUMBER` (for example `GCD-123`). For anything the bot doesn't understand, it replies with `Supported commands:` and the list of commands.
 
@@ -265,7 +257,6 @@ export default {
   name: 'restart',                                   // the word users type in chat
   description: 'Restart the service of a ticket.',   // shown in the help text
   usage: 'restart GCD-123',
-  slashCommand: '/restart',                          // optional; also create the slash command in the Slack app
   queue: { name: 'restart', concurrency: 1 },        // 1 = sequential, N = up to N jobs in parallel
   timeoutMs: 10 * 60 * 1000,                         // maximum run time, not counting time waiting for answers
   promptPatterns: [/\[y\/n\]\s*$/i],                 // optional; an unfinished line that stays idle for 0.5 s also counts as a question

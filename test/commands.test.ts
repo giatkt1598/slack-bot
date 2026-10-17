@@ -1,7 +1,7 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { actions } = require('../src/actions');
-const { createCommands, parseCancel, toPlainText } = require('../src/bot/commands');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { actions } from '../src/actions/index.ts';
+import { createCommands, parseCancel, toPlainText } from '../src/bot/commands.ts';
 
 test('parseCancel accepts "cancel #N" in its usual spellings', () => {
   for (const text of ['cancel #3', 'cancel 3', 'Cancel  #3 ', '<@U1> cancel #3', '/cancel #3']) {
@@ -16,7 +16,7 @@ test('parseCancel accepts "cancel #N" in its usual spellings', () => {
 });
 
 const { parseCommand, helpText } = createCommands(actions);
-const parsed = (text) => {
+const parsed = (text: string | undefined) => {
   const result = parseCommand(text);
   return result && { name: result.action.name, args: result.args };
 };

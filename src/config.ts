@@ -1,10 +1,12 @@
-require('dotenv').config({ quiet: true });
+import { config as loadEnv } from 'dotenv';
 
-function csv(value) {
+loadEnv({ quiet: true });
+
+function csv(value: string | undefined): string[] {
   return (value || '').split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-const config = {
+export const config = {
   slackBotToken: process.env.SLACK_BOT_TOKEN,
   slackAppToken: process.env.SLACK_APP_TOKEN,
   redis: {
@@ -20,16 +22,15 @@ const config = {
   logLevel: process.env.LOG_LEVEL || 'info'
 };
 
-function assertBotConfig() {
-  for (const key of ['slackBotToken', 'slackAppToken']) {
-    if (!config[key]) throw new Error(`Missing required environment variable for ${key}`);
-  }
+export function assertBotConfig(): { botToken: string; appToken: string } {
+  const { slackBotToken: botToken, slackAppToken: appToken } = config;
+  if (!botToken) throw new Error('Missing required environment variable SLACK_BOT_TOKEN');
+  if (!appToken) throw new Error('Missing required environment variable SLACK_APP_TOKEN');
+  return { botToken, appToken };
 }
 
-function isAuthorized(channelId, userId) {
+export function isAuthorized(channelId: string, userId: string): boolean {
   const channelOk = !config.authorizedChannelIds.length || config.authorizedChannelIds.includes(channelId);
   const userOk = !config.authorizedUserIds.length || config.authorizedUserIds.includes(userId);
   return channelOk && userOk;
 }
-
-module.exports = { config, assertBotConfig, isAuthorized };

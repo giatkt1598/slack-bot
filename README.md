@@ -111,7 +111,7 @@ Trong kênh muốn dùng bot, gõ `/invite @Command Runner` (hoặc tên bot c�
 
 ## 2. Cài đặt và chạy
 
-Yêu cầu: Docker Desktop, Node.js ≥ 20 trên máy Windows có `gcmd`.
+Yêu cầu: Docker Desktop, Node.js ≥ 24 trên máy Windows có `gcmd`. Dự án viết bằng TypeScript và được Node chạy trực tiếp (không cần bước build).
 
 ### Cấu hình
 
@@ -155,7 +155,7 @@ Tạo task chạy khi khởi động và tự khởi động lại khi lỗi:
 
 ```text
 Program:   C:\Program Files\nodejs\node.exe
-Arguments: D:\repos\slack-bot\src\worker\index.js
+Arguments: D:\repos\slack-bot\src\worker\index.ts
 Start in:  D:\repos\slack-bot
 ```
 
@@ -240,11 +240,12 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 Tạo một file trong `src/actions/` — bot và worker tự nạp, help text và cú pháp chat tự cập nhật:
 
-```js
-// src/actions/restart.js
-const { validateTicket } = require('../shared/validators');
+```ts
+// src/actions/restart.ts
+import { validateTicket } from '../shared/validators.ts';
+import type { ActionDefinition } from '../types.ts';
 
-module.exports = {
+export default {
   name: 'restart',                                   // từ khoá lệnh khi chat
   description: 'Restart service của ticket.',
   usage: 'restart GCD-123',
@@ -255,11 +256,12 @@ module.exports = {
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
   command: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })
-};
+} satisfies ActionDefinition;
 ```
 
 Lưu ý:
 
+- Import tương đối phải ghi rõ đuôi `.ts`; chạy `npm run typecheck` để kiểm tra kiểu.
 - Luôn truyền tham số dưới dạng mảng `args` và kiểm tra mọi giá trị người dùng nhập trong `validate` — **không bao giờ ghép thành chuỗi lệnh shell**.
 - Khởi động lại cả bot (`docker compose up -d --build bot`) và worker sau khi thêm lệnh.
 
@@ -282,7 +284,8 @@ Chi tiết: `tools/gcmd-command/README.md`.
 ### Unit test
 
 ```powershell
+npm run typecheck                               # kiểm tra kiểu (tsc, không build)
 npm test                                        # toàn bộ
-node --test test/runner.test.js                 # một file
+node --test test/runner.test.ts                 # một file
 node --test --test-name-pattern="cancels"       # một test theo tên
 ```

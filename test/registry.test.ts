@@ -1,8 +1,9 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { actions, getAction, queueGroups, defineActions } = require('../src/actions');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { actions, getAction, queueGroups, defineActions } from '../src/actions/index.ts';
+import type { ActionDefinition } from '../src/types.ts';
 
-const valid = {
+const valid: ActionDefinition = {
   name: 'demo',
   description: 'Demo',
   usage: 'demo X',
@@ -11,10 +12,13 @@ const valid = {
   command: (input) => ({ file: 'echo', args: [input.value] })
 };
 
+// Definitions come from files at runtime, so the registry must also reject shapes the types forbid.
+const untyped = (definition: object) => definition as ActionDefinition;
+
 test('loads the bundled actions with sequential deploy and parallel status queues', () => {
   assert.deepEqual(actions.map((action) => action.name).sort(), ['deploy', 'status']);
-  assert.equal(getAction('deploy').queue.concurrency, 1);
-  assert.ok(getAction('status').queue.concurrency > 1);
+  assert.equal(getAction('deploy')?.queue.concurrency, 1);
+  assert.ok((getAction('status')?.queue.concurrency ?? 0) > 1);
   assert.deepEqual(queueGroups.map((group) => group.name).sort(), ['deploy', 'status']);
 });
 
@@ -30,10 +34,10 @@ test('bundled actions build argument arrays without a shell', () => {
 });
 
 test('applies defaults: own queue, concurrency 1, no prompt patterns', () => {
-  const registry = defineActions([valid]);
-  assert.deepEqual(registry.getAction('demo').queue, { name: 'demo', concurrency: 1 });
-  assert.deepEqual(registry.getAction('demo').promptPatterns, []);
-  assert.ok(registry.getAction('demo').timeoutMs > 0);
+  const demo = defineActions([valid]).getAction('demo');
+  assert.deepEqual(demo?.queue, { name: 'demo', concurrency: 1 });
+  assert.deepEqual(demo?.promptPatterns, []);
+  assert.ok((demo?.timeoutMs ?? 0) > 0);
 });
 
 test('groups actions that share a queue', () => {
@@ -45,7 +49,7 @@ test('groups actions that share a queue', () => {
 });
 
 test('rejects invalid definitions', () => {
-  assert.throws(() => defineActions([{ ...valid, command: undefined }]), /command/);
+  assert.throws(() => defineActions([untyped({ ...valid, command: undefined })]), /command/);
   assert.throws(() => defineActions([valid, valid]), /trùng/);
   assert.throws(() => defineActions([{ ...valid, name: 'Bad Name' }]), /tên/);
   assert.throws(() => defineActions([{ ...valid, name: 'cancel' }]), /lệnh có sẵn/);

@@ -1,13 +1,15 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const { runCommand } = require('../src/worker/runner');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { runCommand } from '../src/worker/runner.ts';
+import type { RunOptions } from '../src/worker/runner.ts';
+import type { RunnerEvent } from '../src/types.ts';
 
-const mock = path.join(__dirname, '..', 'tools', 'gcmd-command', 'bin', 'gcmd.js');
+const mock = path.join(import.meta.dirname, '..', 'tools', 'gcmd-command', 'bin', 'gcmd.js');
 
 // Runs the mock gcmd, answering each prompt with the next value of `answers`.
-function runMock(args, { answers = [], timeoutMs = 10000, inputTimeoutMs = 5000, promptPatterns = [/\[y\/n\]\s*$/i] } = {}) {
-  const events = [];
+function runMock(args: string[], { answers = [] as string[], timeoutMs = 10000, inputTimeoutMs = 5000, promptPatterns = [/\[y\/n\]\s*$/i] } = {}) {
+  const events: RunnerEvent[] = [];
   const pending = [...answers];
   const run = runCommand({
     file: process.execPath,
@@ -17,14 +19,31 @@ function runMock(args, { answers = [], timeoutMs = 10000, inputTimeoutMs = 5000,
     promptPatterns,
     onEvent: (event) => {
       events.push(event);
-      if (event.type === 'prompt' && pending.length) setImmediate(() => run.sendInput(pending.shift()));
+      const answer = pending[0];
+      if (event.type === 'prompt' && answer !== undefined) {
+        pending.shift();
+        setImmediate(() => run.sendInput(answer));
+      }
     }
   });
   return run.result.then((result) => ({ result, events }));
 }
 
-const prompts = (events) => events.filter((event) => event.type === 'prompt').map((event) => event.text);
-const outputText = (events) => events.filter((event) => event.type === 'output').map((event) => event.text).join('');
+// Runs the mock deploy directly, letting the test drive prompts/kill through onEvent.
+function runDeploy(options: Pick<RunOptions, 'timeoutMs' | 'inputTimeoutMs' | 'promptPatterns'>, onPrompt: (run: ReturnType<typeof runCommand>) => void) {
+  const run = runCommand({
+    file: process.execPath,
+    args: [mock, 'deploy', '--ticket', 'GCD-1', '--delay', '0'],
+    ...options,
+    onEvent: (event) => {
+      if (event.type === 'prompt') onPrompt(run);
+    }
+  });
+  return run.result;
+}
+
+const prompts = (events: RunnerEvent[]) => events.flatMap((event) => (event.type === 'prompt' ? [event.text] : []));
+const outputText = (events: RunnerEvent[]) => events.flatMap((event) => (event.type === 'output' ? [event.text] : [])).join('');
 
 test('streams output and passes answers to prompts', async () => {
   const { result, events } = await runMock(['deploy', '--ticket', 'GCD-1'], { answers: ['Y', 'hotfix'] });
@@ -52,48 +71,30 @@ test('detects prompts by idle partial line without a pattern', async () => {
 test('kills the command when nobody answers in time', async () => {
   const { result, events } = await runMock(['deploy', '--ticket', 'GCD-1'], { inputTimeoutMs: 300 });
   assert.equal(result.ok, false);
-  assert.match(result.reason, /Hết thời gian chờ trả lời/);
-  assert.ok(events.find((event) => event.type === 'prompt').expiresAt);
+  assert.match(result.reason ?? '', /Hết thời gian chờ trả lời/);
+  const prompt = events.find((event) => event.type === 'prompt');
+  assert.ok(prompt?.type === 'prompt' && prompt.expiresAt);
 });
 
 test('runtime timeout excludes time spent waiting for input', async () => {
-  const run = runCommand({
-    file: process.execPath,
-    args: [mock, 'deploy', '--ticket', 'GCD-1', '--delay', '0'],
-    timeoutMs: 1000,
-    inputTimeoutMs: 5000,
-    promptPatterns: [/\[y\/n\]\s*$/i, /:\s*$/],
-    onEvent: (event) => {
-      if (event.type === 'prompt') setTimeout(() => run.sendInput('y'), 700);
-    }
-  });
-  const result = await run.result;
-  assert.equal(result.ok, true, result.reason);
+  const result = await runDeploy(
+    { timeoutMs: 1000, inputTimeoutMs: 5000, promptPatterns: [/\[y\/n\]\s*$/i, /:\s*$/] },
+    (run) => setTimeout(() => run.sendInput('y'), 700)
+  );
+  assert.equal(result.ok, true, result.reason ?? undefined);
 });
 
 test('runtime timeout kills a command that runs too long', async () => {
-  const run = runCommand({
-    file: process.execPath,
-    args: ['-e', 'setTimeout(() => {}, 10000)'],
-    timeoutMs: 200
-  });
-  const result = await run.result;
+  const result = await runCommand({ file: process.execPath, args: ['-e', 'setTimeout(() => {}, 10000)'], timeoutMs: 200 }).result;
   assert.equal(result.ok, false);
-  assert.match(result.reason, /quá thời gian/);
+  assert.match(result.reason ?? '', /quá thời gian/);
 });
 
 test('kill() cancels a command that is waiting for input', async () => {
-  const run = runCommand({
-    file: process.execPath,
-    args: [mock, 'deploy', '--ticket', 'GCD-1', '--delay', '0'],
-    timeoutMs: 10000,
-    inputTimeoutMs: 10000,
-    promptPatterns: [/\[y\/n\]\s*$/i],
-    onEvent: (event) => {
-      if (event.type === 'prompt') run.kill('Job đã bị huỷ.');
-    }
-  });
-  const result = await run.result;
+  const result = await runDeploy(
+    { timeoutMs: 10000, inputTimeoutMs: 10000, promptPatterns: [/\[y\/n\]\s*$/i] },
+    (run) => run.kill('Job đã bị huỷ.')
+  );
   assert.equal(result.ok, false);
   assert.equal(result.cancelled, true);
   assert.equal(result.reason, 'Job đã bị huỷ.');

@@ -1,20 +1,35 @@
-const spawn = require('cross-spawn');
-const { execFile } = require('node:child_process');
+import spawn from 'cross-spawn';
+import { execFile } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import type { CommandSpec, RunResult, RunnerEvent } from '../types.ts';
 
 const TAIL_CHARS = 4000;
 const PROMPT_IDLE_MS = 500;
 const KILL_GRACE_MS = 5000;
 
-function tail(text, max = TAIL_CHARS) {
+export interface RunOptions extends CommandSpec {
+  timeoutMs?: number;
+  inputTimeoutMs?: number;
+  promptPatterns?: RegExp[];
+  onEvent?: (event: RunnerEvent) => void;
+}
+
+export interface RunningCommand {
+  result: Promise<RunResult>;
+  sendInput(text: string): boolean;
+  kill(reason?: string): void;
+}
+
+function tail(text: string, max = TAIL_CHARS): string {
   return text.length > max ? text.slice(-max) : text;
 }
 
-function formatDuration(ms) {
+export function formatDuration(ms: number): string {
   return ms >= 60000 ? `${Math.round(ms / 60000)} phút` : `${Math.round(ms / 1000)} giây`;
 }
 
 // npm/.cmd shims on Windows start a grandchild node process, so kill the whole tree.
-function killTree(child) {
+function killTree(child: ChildProcess): void {
   if (!child.pid || child.exitCode !== null) return;
   if (process.platform === 'win32') execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
   else child.kill('SIGKILL');
@@ -24,26 +39,24 @@ function killTree(child) {
  * Runs a command with piped stdio, streaming output and detecting interactive prompts.
  * A prompt is a non-empty partial line (no trailing newline) that matches promptPatterns or stays idle
  * for PROMPT_IDLE_MS. While a prompt is open the runtime timeout is paused and inputTimeoutMs applies.
- *
- * Events passed to onEvent: output { stream, text }, prompt { text, expiresAt }, prompt-closed, input-received { text }.
- * Returns { result: Promise<{ ok, exitCode, reason, cancelled, stdoutTail, stderrTail }>, sendInput(text), kill(reason) }.
  */
-function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns = [], onEvent = () => {} }) {
+export function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns = [], onEvent = () => {} }: RunOptions): RunningCommand {
+  // cross-spawn: plain spawn with shell:false cannot run npm .cmd shims on Windows (Node >= 20.12).
   const child = spawn(file, args, { windowsHide: true, stdio: 'pipe' });
   const output = { stdout: '', stderr: '' };
   let partial = '';
   let promptOpen = false;
-  let stopReason = null;
+  let stopReason: string | null = null;
   let cancelled = false;
   let finished = false;
-  let remainingMs = timeoutMs;
-  let runStartedAt;
-  let runTimer;
-  let inputTimer;
-  let idleTimer;
-  let finish;
+  let remainingMs = timeoutMs ?? 0;
+  let runStartedAt = 0;
+  let runTimer: NodeJS.Timeout | undefined;
+  let inputTimer: NodeJS.Timeout | undefined;
+  let idleTimer: NodeJS.Timeout | undefined;
+  let finish: (exitCode: number | null, error?: Error) => void = () => {};
 
-  const emit = (event) => {
+  const emit = (event: RunnerEvent) => {
     try {
       onEvent(event);
     } catch (error) {
@@ -51,26 +64,26 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     }
   };
 
-  function stop(reason) {
+  function stop(reason: string): void {
     if (finished || stopReason) return;
     stopReason = reason;
     killTree(child);
     setTimeout(() => finish(null), KILL_GRACE_MS).unref();
   }
 
-  function startRunTimer() {
+  function startRunTimer(): void {
     if (!timeoutMs) return;
     runStartedAt = Date.now();
     runTimer = setTimeout(() => stop(`Command chạy quá thời gian cho phép (${formatDuration(timeoutMs)}).`), Math.max(remainingMs, 0));
   }
 
-  function pauseRunTimer() {
+  function pauseRunTimer(): void {
     if (!timeoutMs) return;
     clearTimeout(runTimer);
     remainingMs -= Date.now() - runStartedAt;
   }
 
-  function openPrompt(text) {
+  function openPrompt(text: string): void {
     if (promptOpen || finished || stopReason) return;
     promptOpen = true;
     pauseRunTimer();
@@ -81,7 +94,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     emit({ type: 'prompt', text, expiresAt });
   }
 
-  function closePrompt() {
+  function closePrompt(): void {
     if (!promptOpen) return;
     promptOpen = false;
     clearTimeout(inputTimer);
@@ -89,7 +102,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     emit({ type: 'prompt-closed' });
   }
 
-  function onData(stream, text) {
+  function onData(stream: 'stdout' | 'stderr', text: string): void {
     output[stream] = tail(output[stream] + text);
     emit({ type: 'output', stream, text });
     const lastNewline = text.lastIndexOf('\n');
@@ -105,7 +118,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     idleTimer = setTimeout(() => openPrompt(partial.trim()), PROMPT_IDLE_MS);
   }
 
-  const result = new Promise((resolve) => {
+  const result = new Promise<RunResult>((resolve) => {
     finish = (exitCode, error) => {
       if (finished) return;
       finished = true;
@@ -119,16 +132,20 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     child.on('close', (exitCode) => finish(exitCode));
   });
 
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (text) => onData('stdout', text));
-  child.stderr.on('data', (text) => onData('stderr', text));
-  child.stdin.on('error', () => {});
+  // stdio: 'pipe' guarantees these streams exist.
+  const stdout = child.stdout!;
+  const stderr = child.stderr!;
+  const stdin = child.stdin!;
+  stdout.setEncoding('utf8');
+  stderr.setEncoding('utf8');
+  stdout.on('data', (text: string) => onData('stdout', text));
+  stderr.on('data', (text: string) => onData('stderr', text));
+  stdin.on('error', () => {});
   startRunTimer();
 
-  function sendInput(text) {
-    if (finished || stopReason || !child.stdin.writable) return false;
-    child.stdin.write(`${text}\n`);
+  function sendInput(text: string): boolean {
+    if (finished || stopReason || !stdin.writable) return false;
+    stdin.write(`${text}\n`);
     partial = '';
     clearTimeout(idleTimer);
     closePrompt();
@@ -136,7 +153,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     return true;
   }
 
-  function kill(reason = 'Job đã bị huỷ.') {
+  function kill(reason = 'Job đã bị huỷ.'): void {
     if (finished || stopReason) return;
     cancelled = true;
     stop(reason);
@@ -144,5 +161,3 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
 
   return { result, sendInput, kill };
 }
-
-module.exports = { runCommand, formatDuration };

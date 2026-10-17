@@ -1,14 +1,18 @@
-const { Worker } = require('bullmq');
-const { config } = require('../config');
-const { connection, createQueue, queueName } = require('../shared/queue');
-const { createBus } = require('../shared/bus');
-const { getAction, queueGroups } = require('../actions');
-const { runCommand } = require('./runner');
+import { Worker } from 'bullmq';
+import type { Job } from 'bullmq';
+import { config } from '../config.ts';
+import { connection, createQueue, queueName } from '../shared/queue.ts';
+import { createBus } from '../shared/bus.ts';
+import type { Bus } from '../shared/bus.ts';
+import { getAction, queueGroups } from '../actions/index.ts';
+import { runCommand } from './runner.ts';
+import type { JobData, JobResult } from '../types.ts';
 
 const workerId = `${process.env.COMPUTERNAME || 'windows'}-${process.pid}`;
-const log = (message) => console.log(`[worker ${workerId}] ${message}`);
+const log = (message: string) => console.log(`[worker ${workerId}] ${message}`);
 
-async function processJob(job, bus) {
+async function processJob(job: Job<JobData, JobResult>, bus: Bus): Promise<JobResult> {
+  const jobId = job.id ?? '';
   const action = getAction(job.data.action);
   if (!action) throw new Error(`Unknown action: ${job.data.action}`);
   const input = action.validate(job.data.input);
@@ -20,13 +24,13 @@ async function processJob(job, bus) {
     inputTimeoutMs: config.inputTimeoutMs,
     promptPatterns: action.promptPatterns,
     onEvent: (event) => {
-      if (event.type === 'prompt') log(`${job.id} waiting for input: ${event.text}`);
-      bus.publishEvent({ jobId: job.id, ...event }).catch((error) => log(`publish failed: ${error.message}`));
+      if (event.type === 'prompt') log(`${jobId} waiting for input: ${event.text}`);
+      bus.publishEvent({ jobId, ...event }).catch((error: Error) => log(`publish failed: ${error.message}`));
     }
   });
-  let cancelledBy;
-  const unsubscribe = await bus.subscribeInput(job.id, (text) => run.sendInput(text), ({ by }) => {
-    log(`${job.id} cancelled by ${by}`);
+  let cancelledBy: string | undefined;
+  const unsubscribe = await bus.subscribeInput(jobId, (text) => run.sendInput(text), ({ by }) => {
+    log(`${jobId} cancelled by ${by}`);
     cancelledBy = by;
     run.kill('Job đã bị huỷ.');
   });
@@ -38,15 +42,15 @@ async function processJob(job, bus) {
   }
 }
 
-async function main() {
+async function main(): Promise<void> {
   const bus = createBus();
-  const workers = [];
+  const workers: Worker<JobData, JobResult>[] = [];
   for (const group of queueGroups) {
     // Global concurrency caps the queue across all worker processes; 1 means strictly sequential.
     const queue = createQueue(group.name);
     await queue.setGlobalConcurrency(group.concurrency);
     await queue.close();
-    const worker = new Worker(queueName(group.name), (job) => processJob(job, bus), {
+    const worker = new Worker<JobData, JobResult>(queueName(group.name), (job) => processJob(job, bus), {
       connection,
       concurrency: group.concurrency,
       // A worker crash must not silently re-run a deploy: stalled jobs fail instead of being retried.

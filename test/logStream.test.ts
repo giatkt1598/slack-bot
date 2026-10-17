@@ -1,14 +1,17 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { createLogStreams, render, stripAnsi } = require('../src/bot/logStream');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createLogStreams, render, stripAnsi } from '../src/bot/logStream.ts';
+import type { SlackMessage } from '../src/bot/slack.ts';
+
+type Call = ['post' | 'update', SlackMessage & { ts?: string }];
 
 function fakeClient() {
-  const calls = [];
+  const calls: Call[] = [];
   return {
     calls,
     chat: {
-      postMessage: async (message) => { calls.push(['post', message]); return { ts: '100.1' }; },
-      update: async (message) => { calls.push(['update', message]); return {}; }
+      postMessage: async (message: SlackMessage) => { calls.push(['post', message]); return { ts: '100.1' }; },
+      update: async (message: SlackMessage & { ts: string }) => { calls.push(['update', message]); return {}; }
     }
   };
 }

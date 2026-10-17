@@ -1,6 +1,7 @@
-const { validateTicket } = require('../shared/validators');
+import { validateTicket } from '../shared/validators.ts';
+import type { ActionDefinition } from '../types.ts';
 
-module.exports = {
+export default {
   name: 'status',
   description: 'Chạy `gcmd status --ticket <TICKET>` (song song).',
   usage: 'status GCD-123',
@@ -9,4 +10,4 @@ module.exports = {
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
   command: (input) => ({ file: 'gcmd', args: ['status', '--ticket', input.ticket] })
-};
+} satisfies ActionDefinition;

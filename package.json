@@ -3,21 +3,29 @@
   "version": "1.0.0",
   "private": true,
   "description": "Slack command bot with BullMQ and a Windows command worker",
-  "main": "src/bot/index.js",
+  "type": "module",
+  "main": "src/bot/index.ts",
   "scripts": {
-    "start:bot": "node src/bot/index.js",
-    "start:worker": "node src/worker/index.js",
-    "test": "node --test"
+    "start:bot": "node src/bot/index.ts",
+    "start:worker": "node src/worker/index.ts",
+    "typecheck": "tsc",
+    "test": "node --test \"test/**/*.test.ts\""
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
-    "@slack/bolt": "^4.6.0",
-    "bullmq": "^5.58.0",
+    "@slack/bolt": "^5.1.0",
+    "bullmq": "^6.3.16",
     "cross-spawn": "^7.0.6",
-    "dotenv": "^16.6.1",
-    "ioredis": "^5.11.1",
-    "sql.js": "^1.13.0"
+    "dotenv": "^18.0.8",
+    "ioredis": "^6.0.0",
+    "sql.js": "^1.15.0"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^24.19.2",
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^7.0.2"
   }
 }

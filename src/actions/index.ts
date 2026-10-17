@@ -1,8 +1,10 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { config } = require('../config');
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { config } from '../config.ts';
+import type { Action, ActionDefinition, QueueGroup } from '../types.ts';
 
-// Built-in bot commands (see src/bot/commands.js) that actions must not shadow.
+// Built-in bot commands (see src/bot/commands.ts) that actions must not shadow.
 const reservedNames = ['cancel'];
 
 const requiredFields = {
@@ -12,15 +14,24 @@ const requiredFields = {
   parse: 'function',
   validate: 'function',
   command: 'function'
-};
+} as const;
+
+export interface Registry {
+  actions: Action[];
+  getAction(name: string): Action | undefined;
+  queueGroups: QueueGroup[];
+}
 
 // Validates action definitions and groups them by queue. Actions sharing a queue must agree on its concurrency.
-function defineActions(definitions) {
-  const byName = new Map();
+// Definitions come from files at runtime, so their shape is checked here even though they are typed.
+export function defineActions(definitions: ActionDefinition[]): Registry {
+  const byName = new Map<string, Action>();
   for (const definition of definitions) {
     const label = definition?.name || '(không tên)';
     for (const [field, type] of Object.entries(requiredFields)) {
-      if (typeof definition?.[field] !== type) throw new Error(`Action ${label}: "${field}" phải là ${type}.`);
+      if (typeof (definition as unknown as Record<string, unknown> | undefined)?.[field] !== type) {
+        throw new Error(`Action ${label}: "${field}" phải là ${type}.`);
+      }
     }
     if (!/^[a-z][a-z0-9-]*$/.test(definition.name)) throw new Error(`Action ${label}: tên chỉ gồm a-z, 0-9, "-".`);
     if (byName.has(definition.name)) throw new Error(`Action ${label} bị khai báo trùng.`);
@@ -32,7 +43,7 @@ function defineActions(definitions) {
     byName.set(definition.name, { timeoutMs: config.commandTimeoutMs, promptPatterns: [], ...definition, queue });
   }
 
-  const groups = new Map();
+  const groups = new Map<string, QueueGroup>();
   for (const action of byName.values()) {
     const group = groups.get(action.queue.name);
     if (!group) {
@@ -51,10 +62,13 @@ function defineActions(definitions) {
   };
 }
 
-// Every *.js file in this folder except index.js is an action definition.
-function loadActions(directory = __dirname) {
-  const files = fs.readdirSync(directory).filter((file) => file.endsWith('.js') && file !== 'index.js').sort();
-  return defineActions(files.map((file) => require(path.join(directory, file))));
+// Every *.ts file in this folder except index.ts default-exports an action definition.
+export async function loadActions(directory: string = import.meta.dirname): Promise<Registry> {
+  const files = readdirSync(directory).filter((file) => file.endsWith('.ts') && file !== 'index.ts').sort();
+  const modules: { default: ActionDefinition }[] = await Promise.all(
+    files.map((file) => import(pathToFileURL(join(directory, file)).href))
+  );
+  return defineActions(modules.map((module) => module.default));
 }
 
-module.exports = { ...loadActions(), defineActions, loadActions };
+export const { actions, getAction, queueGroups } = await loadActions();

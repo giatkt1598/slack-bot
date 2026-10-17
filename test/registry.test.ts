@@ -16,11 +16,11 @@ const valid: CommandDefinition = {
 const untyped = (definition: object) => definition as CommandDefinition;
 
 test('loads the bundled commands with sequential deploy and parallel status/ipconfig queues', () => {
-  assert.deepEqual(commands.map((command) => command.name).sort(), ['deploy', 'ipconfig', 'status']);
+  assert.deepEqual(commands.map((command) => command.name).sort(), ['deploy', 'ipconfig', 'status', 'systeminfo']);
   assert.equal(getCommand('deploy')?.queue.concurrency, 1);
   assert.ok((getCommand('status')?.queue.concurrency ?? 0) > 1);
   assert.ok((getCommand('ipconfig')?.queue.concurrency ?? 0) > 1);
-  assert.deepEqual(queueGroups.map((group) => group.name).sort(), ['deploy', 'ipconfig', 'status']);
+  assert.deepEqual(queueGroups.map((group) => group.name).sort(), ['deploy', 'ipconfig', 'status', 'systeminfo']);
 });
 
 test('ticket commands build argument arrays without a shell', () => {
@@ -32,6 +32,17 @@ test('ticket commands build argument arrays without a shell', () => {
     assert.ok(args.includes('GCD-123'));
     assert.throws(() => command.validate(command.parse('GCD-1; whoami')));
   }
+});
+
+test('systeminfo takes no arguments and runs plain systeminfo', () => {
+  const systeminfo = getCommand('systeminfo')!;
+  const run = (text: string) => systeminfo.build(systeminfo.validate(systeminfo.parse(text)));
+  assert.deepEqual(run(''), { file: 'systeminfo', args: [] });
+  assert.deepEqual(run('   '), { file: 'systeminfo', args: [] });
+  for (const text of ['/fo csv', '& whoami', 'now']) {
+    assert.throws(() => systeminfo.validate(systeminfo.parse(text)), /takes no arguments/);
+  }
+  assert.equal(systeminfo.queue.concurrency, 1);
 });
 
 test('ipconfig accepts only "" and "/all" and passes nothing else to the command', () => {

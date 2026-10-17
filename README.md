@@ -15,6 +15,7 @@ Available commands:
 | `deploy GCD-123` | `gcmd deploy --ticket GCD-123` | Sequential (one job at a time), asks for confirmation |
 | `status GCD-123` | `gcmd status --ticket GCD-123` | Parallel (up to 4 jobs) |
 | `ipconfig` / `ipconfig /all` | `ipconfig` / `ipconfig /all` on the bot's machine | Parallel (up to 4 jobs); only these two forms are accepted |
+| `systeminfo` | `systeminfo` on the bot's machine | Sequential; takes no arguments; takes a few seconds |
 
 ## Architecture
 

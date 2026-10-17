@@ -27,18 +27,18 @@ export interface Registry {
 export function defineCommands(definitions: CommandDefinition[]): Registry {
   const byName = new Map<string, Command>();
   for (const definition of definitions) {
-    const label = definition?.name || '(không tên)';
+    const label = definition?.name || '(unnamed)';
     for (const [field, type] of Object.entries(requiredFields)) {
       if (typeof (definition as unknown as Record<string, unknown> | undefined)?.[field] !== type) {
-        throw new Error(`Command ${label}: "${field}" phải là ${type}.`);
+        throw new Error(`Command ${label}: "${field}" must be a ${type}.`);
       }
     }
-    if (!/^[a-z][a-z0-9-]*$/.test(definition.name)) throw new Error(`Command ${label}: tên chỉ gồm a-z, 0-9, "-".`);
-    if (byName.has(definition.name)) throw new Error(`Command ${label} bị khai báo trùng.`);
-    if (reservedNames.includes(definition.name)) throw new Error(`Command ${label}: tên này dành cho lệnh có sẵn của bot.`);
+    if (!/^[a-z][a-z0-9-]*$/.test(definition.name)) throw new Error(`Command ${label}: name may only contain a-z, 0-9 and "-".`);
+    if (byName.has(definition.name)) throw new Error(`Command ${label} is defined more than once.`);
+    if (reservedNames.includes(definition.name)) throw new Error(`Command ${label}: this name is reserved for a built-in bot command.`);
     const queue = { name: definition.name, concurrency: 1, ...definition.queue };
     if (!Number.isInteger(queue.concurrency) || queue.concurrency < 1) {
-      throw new Error(`Command ${label}: queue.concurrency phải là số nguyên >= 1.`);
+      throw new Error(`Command ${label}: queue.concurrency must be an integer >= 1.`);
     }
     byName.set(definition.name, { timeoutMs: config.commandTimeoutMs, promptPatterns: [], ...definition, queue });
   }
@@ -49,7 +49,7 @@ export function defineCommands(definitions: CommandDefinition[]): Registry {
     if (!group) {
       groups.set(command.queue.name, { ...command.queue, commands: [command.name] });
     } else if (group.concurrency !== command.queue.concurrency) {
-      throw new Error(`Queue ${group.name} có concurrency không thống nhất giữa các command.`);
+      throw new Error(`Queue ${group.name} has conflicting concurrency between commands.`);
     } else {
       group.commands.push(command.name);
     }

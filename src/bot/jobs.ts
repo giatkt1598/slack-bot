@@ -13,9 +13,9 @@ export const isDirectMessage = (channelId: string) => channelId.startsWith('D');
 
 const commandText = (command: Command, input: JobInput) => `\`${formatCommand(command.build(input))}\``;
 export const runningMessage = (jobId: string, command: Command, input: JobInput) =>
-  `${jobLabel(jobId)} Đang chạy lệnh ${commandText(command, input)}`;
+  `${jobLabel(jobId)} Running ${commandText(command, input)}`;
 export const queuedMessage = (jobId: string, command: Command, input: JobInput) =>
-  `Đã thêm ${jobLabel(jobId)} ${commandText(command, input)} vào hàng đợi`;
+  `Added ${jobLabel(jobId)} ${commandText(command, input)} to the queue`;
 // Names the job so answers aren't mixed up when several jobs ask at once (especially in a flat DM).
 export const promptMessage = (jobId: string, prompt: string) => `❓ [${jobLabel(jobId)}] ${prompt}`;
 
@@ -32,8 +32,8 @@ export interface EnqueueOptions {
 }
 
 // Posts the first message, records the job and enqueues it on the command's queue. If the job has to wait,
-// the first message is "Đã thêm #N … vào hàng đợi" and "#N Đang chạy lệnh …" follows when it starts (onStart);
-// otherwise "#N Đang chạy lệnh …" is posted right away.
+// the first message is "Added #N … to the queue" and "#N Running …" follows when it starts (onStart);
+// otherwise "#N Running …" is posted right away.
 // In channels, status updates go to replyThreadTs if given, else to the thread of the posted message.
 // In DMs everything is posted top-level; the job's threadTs is '' (no thread).
 export async function enqueueJob({ client, db, scheduler, command, input, channelId, userId, replyThreadTs, jobId }: EnqueueOptions): Promise<string> {

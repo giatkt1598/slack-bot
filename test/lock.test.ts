@@ -16,7 +16,7 @@ test('only one holder at a time; released locks can be taken again', (t) => {
   const file = tempLockPath(t);
   // Simulate another live process holding the lock: the parent of this test process is alive.
   fs.writeFileSync(file, String(process.ppid));
-  assert.throws(() => acquireLock(file), /đang chạy ở tiến trình khác/);
+  assert.throws(() => acquireLock(file), /already running in another process/);
 
   fs.rmSync(file);
   const release = acquireLock(file);

@@ -12,7 +12,7 @@ const nodeScript = (name: string, script: string, queue: CommandDefinition['queu
   queue,
   parse: (args) => ({ value: args }),
   validate: (input) => {
-    if (input.value === 'invalid') throw new Error('Giá trị không hợp lệ.');
+    if (input.value === 'invalid') throw new Error('Invalid value.');
     return input;
   },
   build: () => ({ file: process.execPath, args: ['-e', script] }),
@@ -186,6 +186,6 @@ test('a validation error at start becomes a failed result and frees the slot', a
   enqueue('b', 'serial');
   const failed = await finished('a');
   assert.equal(failed.ok, false);
-  assert.equal(failed.reason, 'Giá trị không hợp lệ.');
+  assert.equal(failed.reason, 'Invalid value.');
   assert.equal((await finished('b')).ok, true);
 });

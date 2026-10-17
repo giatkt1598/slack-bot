@@ -25,19 +25,19 @@ export function createChatParser(commands: Command[]) {
     const builtins = [
       {
         usage: "queue",
-        description: "Xem các job đang chạy và đang đợi trong hàng đợi.",
+        description: "Show running and waiting jobs.",
       },
       {
         usage: "cancel #3",
-        description: "Huỷ job đang xếp hàng, đang chạy hoặc đang chờ trả lời.",
+        description: "Cancel a queued, running or waiting job.",
       },
     ];
     const list = [...commands, ...builtins]
       .map(({ usage, description }) => `• \`${usage}\` — ${description}`)
       .join("\n");
     return (
-      `Những lệnh được hỗ trợ:\n${list}\n` +
-      "_Gõ trong DM, khi @mention tôi, hoặc dùng slash command. Khi command hỏi, hãy trả lời trong thread của job._"
+      `Supported commands:\n${list}\n` +
+      "_Send it in a DM, @mention me, or use a slash command. When a command asks something, reply in its thread (in a DM, just send the answer)._"
     );
   }
 

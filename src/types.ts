@@ -71,6 +71,6 @@ export interface JobRecord {
   // undefined = no thread (DM conversation).
   threadTs: string | undefined;
   userId: string;
-  // Whether "#N Đang chạy lệnh …" was posted.
+  // Whether "#N Running …" was posted.
   announced: boolean;
 }

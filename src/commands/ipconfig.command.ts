@@ -9,14 +9,14 @@ const modes: Record<string, string[]> = {
 
 export default {
   name: 'ipconfig',
-  description: 'Xem cấu hình mạng của máy chạy bot (`ipconfig`, hoặc `ipconfig /all` để xem chi tiết).',
+  description: "Show the bot host's network configuration (`ipconfig`, or `ipconfig /all` for details).",
   usage: 'ipconfig',
   queue: { name: 'ipconfig', concurrency: 4 },
   timeoutMs: 60 * 1000,
   parse: (argsText) => ({ mode: argsText.trim().toLowerCase() }),
   validate: (input) => {
     const mode = input.mode ?? '';
-    if (!(mode in modes)) throw new Error('Chỉ hỗ trợ `ipconfig` hoặc `ipconfig /all`.');
+    if (!(mode in modes)) throw new Error('Only `ipconfig` and `ipconfig /all` are supported.');
     return { mode: modes[mode].length ? '/all' : '' };
   },
   build: (input) => ({ file: 'ipconfig', args: modes[input.mode ?? ''] ?? [] })

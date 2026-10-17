@@ -31,8 +31,8 @@ test('posts one log message, then edits it in place and marks it finished', asyn
   assert.deepEqual(client.calls.map(([kind]) => kind), ['post', 'update', 'update']);
   assert.equal(client.calls[0][1].thread_ts, '1.1');
   assert.match(client.calls[1][1].text, /line 1\nline 2/);
-  assert.match(client.calls[0][1].text, /^📜 \*Log #1\* \(đang chạy…\)/);
-  assert.match(client.calls[2][1].text, /^📜 \*Log #1\* \(đã kết thúc\)/);
+  assert.match(client.calls[0][1].text, /^📜 \*Log #1\* \(running…\)/);
+  assert.match(client.calls[2][1].text, /^📜 \*Log #1\* \(finished\)/);
   assert.ok(client.calls.slice(1).every(([, message]) => message.ts === '100.1'));
   assert.doesNotMatch(client.calls[2][1].text, /late output/);
 });
@@ -47,7 +47,7 @@ test('jobs without a thread (DMs) get a top-level log message', async () => {
 
 test('render keeps only the tail and neutralises code fences', () => {
   const text = render({ job: { id: 'job-15' }, text: `${'x'.repeat(5000)}\`\`\`end`, done: false });
-  assert.match(text, /^📜 \*Log #15\* \(đang chạy…\)\n/);
+  assert.match(text, /^📜 \*Log #15\* \(running…\)\n/);
   assert.ok(text.length < 3700);
   assert.match(text, /ʼʼʼend/);
   assert.equal(stripAnsi('\x1b[1;31mred\x1b[0m'), 'red');

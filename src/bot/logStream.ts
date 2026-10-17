@@ -21,8 +21,8 @@ export function stripAnsi(text: string): string {
 
 export function render({ job, text, done }: { job: Pick<LogTarget, 'id'>; text: string; done: boolean }): string {
   const body = text.length > MAX_CHARS ? `…${text.slice(-MAX_CHARS)}` : text;
-  const header = `📜 *Log ${jobLabel(job.id)}* ${done ? '(đã kết thúc)' : '(đang chạy…)'}`;
-  return `${header}\n\`\`\`\n${body.replace(/```/g, 'ʼʼʼ') || '(chưa có output)'}\n\`\`\``;
+  const header = `📜 *Log ${jobLabel(job.id)}* ${done ? '(finished)' : '(running…)'}`;
+  return `${header}\n\`\`\`\n${body.replace(/```/g, 'ʼʼʼ') || '(no output yet)'}\n\`\`\``;
 }
 
 // One Slack message per job that is edited in place (throttled) as output arrives.

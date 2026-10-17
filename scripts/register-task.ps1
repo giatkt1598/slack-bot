@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $node = (Get-Command node -ErrorAction SilentlyContinue).Source
-if (-not $node) { throw 'Không tìm thấy node.exe trong PATH. Cài Node.js >= 24 trước.' }
+if (-not $node) { throw 'node.exe was not found in PATH. Install Node.js >= 24 first.' }
 $launcher = Join-Path $PSScriptRoot 'run-bot.vbs'
 $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
 
@@ -37,13 +37,13 @@ Register-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName `
   -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
   -Description "Slack Command Runner bot ($root). Managed by npm run register / unregister." -Force | Out-Null
 
-Write-Host "Đã đăng ký task '$TaskPath$TaskName' (Task Scheduler Library > $($TaskPath.Trim('\'))): chạy bot khi $user đăng nhập Windows."
-Write-Host "  Thư mục: $root"
+Write-Host "Registered task '$TaskPath$TaskName' (Task Scheduler Library > $($TaskPath.Trim('\'))): starts the bot when $user signs in to Windows."
+Write-Host "  Folder: $root"
 Write-Host "  Log:     $(Join-Path $root 'data\bot.log')"
 if ($StartNow) {
   Start-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName
-  Write-Host 'Đã khởi động task ngay bây giờ.'
+  Write-Host 'Task started now.'
 } else {
-  Write-Host 'Chạy ngay: npm run register -- -StartNow'
+  Write-Host 'Start now: npm run register -- -StartNow'
 }
-Write-Host 'Gỡ bỏ:   npm run unregister'
+Write-Host 'Remove:    npm run unregister'

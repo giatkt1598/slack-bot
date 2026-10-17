@@ -71,7 +71,7 @@ test('detects prompts by idle partial line without a pattern', async () => {
 test('kills the command when nobody answers in time', async () => {
   const { result, events } = await runMock(['deploy', '--ticket', 'GCD-1'], { inputTimeoutMs: 300 });
   assert.equal(result.ok, false);
-  assert.match(result.reason ?? '', /Hết thời gian chờ trả lời/);
+  assert.match(result.reason ?? '', /No answer received in time/);
   const prompt = events.find((event) => event.type === 'prompt');
   assert.ok(prompt?.type === 'prompt' && prompt.expiresAt);
 });
@@ -87,17 +87,17 @@ test('runtime timeout excludes time spent waiting for input', async () => {
 test('runtime timeout kills a command that runs too long', async () => {
   const result = await runCommand({ file: process.execPath, args: ['-e', 'setTimeout(() => {}, 10000)'], timeoutMs: 200 }).result;
   assert.equal(result.ok, false);
-  assert.match(result.reason ?? '', /quá thời gian/);
+  assert.match(result.reason ?? '', /exceeded its time limit/);
 });
 
 test('kill() cancels a command that is waiting for input', async () => {
   const result = await runDeploy(
     { timeoutMs: 10000, inputTimeoutMs: 10000, promptPatterns: [/\[y\/n\]\s*$/i] },
-    (run) => run.kill('Job đã bị huỷ.')
+    (run) => run.kill('Job cancelled.')
   );
   assert.equal(result.ok, false);
   assert.equal(result.cancelled, true);
-  assert.equal(result.reason, 'Job đã bị huỷ.');
+  assert.equal(result.reason, 'Job cancelled.');
 });
 
 test('kill() also stops a command that is busy running', async () => {

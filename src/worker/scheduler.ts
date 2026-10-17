@@ -11,7 +11,7 @@ export interface ScheduledJob {
 export interface SchedulerOptions {
   groups: QueueGroup[];
   inputTimeoutMs?: number;
-  // Awaited before the command spawns, so "#N Đang chạy lệnh" / the log message come before any output.
+  // Awaited before the command spawns, so "#N Running" / the log message come before any output.
   onStart(job: ScheduledJob): Promise<void>;
   onEvent(jobId: string, event: RunnerEvent): void;
   // Awaited before the slot is freed, so a job's completion is reported before the next job on its queue starts.
@@ -75,7 +75,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     }
     state.active.set(job.id, { job, run, done: false });
     // A cancel that arrived while onStart was still running.
-    if (cancelledBy.has(job.id)) run.kill('Job đã bị huỷ.');
+    if (cancelledBy.has(job.id)) run.kill('Job cancelled.');
     const result = await run.result;
     return { ...result, cancelledBy: result.cancelled ? cancelledBy.get(job.id) : undefined, finishedAt: new Date().toISOString() };
   }
@@ -132,7 +132,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
       const state = stateOf(jobId);
       if (!state) return false;
       cancelledBy.set(jobId, by);
-      state.active.get(jobId)?.run?.kill('Job đã bị huỷ.');
+      state.active.get(jobId)?.run?.kill('Job cancelled.');
       return true;
     },
     // Running and waiting jobs per queue, in queue order (for the `queue` bot command).

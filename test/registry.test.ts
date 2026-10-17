@@ -41,7 +41,7 @@ test('ipconfig accepts only "" and "/all" and passes nothing else to the command
   assert.deepEqual(run('/all'), { file: 'ipconfig', args: ['/all'] });
   assert.deepEqual(run(' ALL '), { file: 'ipconfig', args: ['/all'] });
   for (const text of ['/release', '/all & whoami', '; whoami', '/flushdns']) {
-    assert.throws(() => ipconfig.validate(ipconfig.parse(text)), /Chỉ hỗ trợ/);
+    assert.throws(() => ipconfig.validate(ipconfig.parse(text)), /Only `ipconfig`/);
   }
 });
 
@@ -62,13 +62,13 @@ test('groups commands that share a queue', () => {
 
 test('rejects invalid definitions', () => {
   assert.throws(() => defineCommands([untyped({ ...valid, build: undefined })]), /"build"/);
-  assert.throws(() => defineCommands([valid, valid]), /trùng/);
-  assert.throws(() => defineCommands([{ ...valid, name: 'Bad Name' }]), /tên/);
-  assert.throws(() => defineCommands([{ ...valid, name: 'cancel' }]), /lệnh có sẵn/);
-  assert.throws(() => defineCommands([{ ...valid, name: 'queue' }]), /lệnh có sẵn/);
+  assert.throws(() => defineCommands([valid, valid]), /more than once/);
+  assert.throws(() => defineCommands([{ ...valid, name: 'Bad Name' }]), /name may only/);
+  assert.throws(() => defineCommands([{ ...valid, name: 'cancel' }]), /reserved/);
+  assert.throws(() => defineCommands([{ ...valid, name: 'queue' }]), /reserved/);
   assert.throws(() => defineCommands([{ ...valid, queue: { concurrency: 0 } }]), /concurrency/);
   assert.throws(() => defineCommands([
     { ...valid, queue: { name: 'q', concurrency: 1 } },
     { ...valid, name: 'demo-2', queue: { name: 'q', concurrency: 3 } }
-  ]), /không thống nhất/);
+  ]), /conflicting concurrency/);
 });

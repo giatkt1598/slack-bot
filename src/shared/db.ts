@@ -58,7 +58,7 @@ export async function createDatabase(filename: string): Promise<Database> {
       announced INTEGER NOT NULL DEFAULT 1
     );
   `);
-  // announced = the "#N Đang chạy lệnh …" message was posted. Older databases lack the column;
+  // announced = the "#N Running …" message was posted. Older databases lack the column;
   // their rows already got that message, hence DEFAULT 1.
   const columns = db.exec('PRAGMA table_info(jobs)')[0].values.map((column) => column[1]);
   if (!columns.includes('announced')) db.run('ALTER TABLE jobs ADD COLUMN announced INTEGER NOT NULL DEFAULT 1');

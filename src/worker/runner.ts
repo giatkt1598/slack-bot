@@ -25,7 +25,8 @@ function tail(text: string, max = TAIL_CHARS): string {
 }
 
 export function formatDuration(ms: number): string {
-  return ms >= 60000 ? `${Math.round(ms / 60000)} phút` : `${Math.round(ms / 1000)} giây`;
+  const [value, unit] = ms >= 60000 ? [Math.round(ms / 60000), 'minute'] : [Math.round(ms / 1000), 'second'];
+  return `${value} ${unit}${value === 1 ? '' : 's'}`;
 }
 
 // npm/.cmd shims on Windows start a grandchild node process, so kill the whole tree.
@@ -74,7 +75,7 @@ export function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptP
   function startRunTimer(): void {
     if (!timeoutMs) return;
     runStartedAt = Date.now();
-    runTimer = setTimeout(() => stop(`Command chạy quá thời gian cho phép (${formatDuration(timeoutMs)}).`), Math.max(remainingMs, 0));
+    runTimer = setTimeout(() => stop(`Command exceeded its time limit (${formatDuration(timeoutMs)}).`), Math.max(remainingMs, 0));
   }
 
   function pauseRunTimer(): void {
@@ -88,7 +89,7 @@ export function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptP
     promptOpen = true;
     pauseRunTimer();
     if (inputTimeoutMs) {
-      inputTimer = setTimeout(() => stop(`Hết thời gian chờ trả lời (${formatDuration(inputTimeoutMs)}).`), inputTimeoutMs);
+      inputTimer = setTimeout(() => stop(`No answer received in time (${formatDuration(inputTimeoutMs)}).`), inputTimeoutMs);
     }
     const expiresAt = inputTimeoutMs ? new Date(Date.now() + inputTimeoutMs).toISOString() : null;
     emit({ type: 'prompt', text, expiresAt });
@@ -153,7 +154,7 @@ export function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptP
     return true;
   }
 
-  function kill(reason = 'Job đã bị huỷ.'): void {
+  function kill(reason = 'Job cancelled.'): void {
     if (finished || stopReason) return;
     cancelled = true;
     stop(reason);

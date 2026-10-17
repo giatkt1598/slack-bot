@@ -23,17 +23,17 @@ test('lists running and waiting jobs per non-empty queue', () => {
   ];
   const text = formatQueueStatus(queues, records({ 'job-15': 'waiting_input', 'job-16': 'queued', 'job-17': 'queued', 'job-18': 'running' }));
   assert.equal(text, [
-    '📋 Hàng đợi',
-    '*deploy* (tuần tự)',
-    '• #15 `gcmd deploy --ticket GCD-1` — ❓ đang chờ trả lời · <@U1>',
-    '• #16 `gcmd deploy --ticket GCD-2` — ⏳ đang đợi (thứ 1) · <@U1>',
-    '• #17 `gcmd deploy --ticket GCD-3` — ⏳ đang đợi (thứ 2) · <@U1>',
-    '*status* (tối đa 4 job song song)',
-    '• #18 `gcmd status --ticket GCD-9` — ▶️ đang chạy · <@U1>'
+    '📋 Queue',
+    '*deploy* (sequential)',
+    '• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · <@U1>',
+    '• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · <@U1>',
+    '• #17 `gcmd deploy --ticket GCD-3` — ⏳ queued (position 2) · <@U1>',
+    '*status* (up to 4 in parallel)',
+    '• #18 `gcmd status --ticket GCD-9` — ▶️ running · <@U1>'
   ].join('\n'));
 });
 
 test('says the queue is empty when nothing runs or waits', () => {
   const queues: QueueSnapshot[] = [{ name: 'deploy', concurrency: 1, active: [], waiting: [] }];
-  assert.match(formatQueueStatus(queues, records({})), /Hàng đợi trống/);
+  assert.match(formatQueueStatus(queues, records({})), /queue is empty/);
 });

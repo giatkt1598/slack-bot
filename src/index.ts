@@ -65,7 +65,7 @@ async function runChatCommand({ text, channel, user, reply, replyThreadTs, logge
   const parsed = parseCommand(text);
   if (!parsed) return reply(helpText());
   const { command, args } = parsed;
-  if (!isAuthorized(channel, user)) return reply(`Bạn không có quyền chạy ${command.name}.`);
+  if (!isAuthorized(channel, user)) return reply(`You are not allowed to run ${command.name}.`);
   let input: JobInput;
   try {
     input = command.validate(command.parse(args));
@@ -76,29 +76,29 @@ async function runChatCommand({ text, channel, user, reply, replyThreadTs, logge
     await enqueue(command, input, { channelId: channel, userId: user, replyThreadTs });
   } catch (error) {
     logger.error(error);
-    await reply(`❌ Không thể xếp hàng ${command.name}: ${(error as Error).message}`);
+    await reply(`❌ Could not queue ${command.name}: ${(error as Error).message}`);
   }
 }
 
 // "cancel #N": queued jobs are dropped from the queue; running/waiting jobs are killed, and the
-// "#N đã bị huỷ" message then comes from onFinish. `here` is where the user typed the command,
+// "#N cancelled" message then comes from onFinish. `here` is where the user typed the command,
 // used to acknowledge when that is not the job's own conversation/thread.
 async function cancelJob({ number, user, here, reply }: { number: number | null; user: string; here: Place; reply: Reply }) {
-  if (!number) return reply('Cú pháp: `cancel #3`');
+  if (!number) return reply('Usage: `cancel #3`');
   const label = `#${number}`;
   const job = getJob(db, toJobId(number));
-  if (!job) return reply(`Không tìm thấy ${label}.`);
-  if (!ACTIVE_STATUSES.includes(job.status)) return reply(`${label} đã hoàn thành.`);
-  if (!isAuthorized(job.channelId, user)) return reply(`Bạn không có quyền huỷ ${label}.`);
+  if (!job) return reply(`${label} not found.`);
+  if (!ACTIVE_STATUSES.includes(job.status)) return reply(`${label} has already finished.`);
+  if (!isAuthorized(job.channelId, user)) return reply(`You are not allowed to cancel ${label}.`);
   const elsewhere = job.channelId !== here.channel || job.threadTs !== here.threadTs;
   if (scheduler.removeQueued(job.id)) {
     updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString() });
-    await postToThread(job, `${label} đã bị huỷ bởi <@${user}>`);
-    if (elsewhere) await reply(`${label} đã bị huỷ.`);
+    await postToThread(job, `${label} cancelled by <@${user}>`);
+    if (elsewhere) await reply(`${label} cancelled.`);
     return;
   }
-  if (!scheduler.cancel(job.id, user)) return reply(`⚠️ ${label} không còn chạy.`);
-  if (elsewhere) await reply(`Đang huỷ ${label}…`);
+  if (!scheduler.cancel(job.id, user)) return reply(`⚠️ ${label} is no longer running.`);
+  if (elsewhere) await reply(`Cancelling ${label}…`);
 }
 
 // Built-in bot commands (`cancel #N`, `queue`) are checked before anything else, so they work even while a
@@ -107,7 +107,7 @@ async function tryBuiltinCommand({ text, user, here, reply }: { text: string | u
   if (isQueueCommand(text)) {
     await reply(isAuthorized(here.channel, user)
       ? formatQueueStatus(scheduler.snapshot(), (jobId) => getJob(db, jobId))
-      : 'Bạn không có quyền xem hàng đợi.');
+      : 'You are not allowed to view the queue.');
     return true;
   }
   const parsed = parseCancel(text);
@@ -119,9 +119,9 @@ async function tryBuiltinCommand({ text, user, here, reply }: { text: string | u
 // A reply in a running job's thread is the answer to the command's prompt: write it to the command's stdin.
 // On success nothing is posted; the answer shows up in the live log (see 'input-received').
 async function forwardInput({ job, text, user, reply }: { job: JobRecord; text: string | undefined; user: string; reply: Reply }) {
-  if (!isAuthorized(job.channelId, user)) return reply('Bạn không có quyền trả lời job này.');
-  if (job.status === 'queued') return reply(`⏸ ${jobLabel(job.id)} chưa chạy nên chưa thể nhận câu trả lời.`);
-  if (!scheduler.sendInput(job.id, toPlainText(text))) return reply(`⚠️ ${jobLabel(job.id)} không còn chạy.`);
+  if (!isAuthorized(job.channelId, user)) return reply('You are not allowed to answer this job.');
+  if (job.status === 'queued') return reply(`⏸ ${jobLabel(job.id)} has not started yet, so it cannot take an answer.`);
+  if (!scheduler.sendInput(job.id, toPlainText(text))) return reply(`⚠️ ${jobLabel(job.id)} is no longer running.`);
 }
 
 app.message(async ({ message, say, context, logger }) => {
@@ -158,7 +158,7 @@ for (const command of registry.commands) {
   if (!command.slashCommand) continue;
   app.command(command.slashCommand, async ({ command: slash, ack, logger }) => {
     if (!isAuthorized(slash.channel_id, slash.user_id)) {
-      await ack({ response_type: 'ephemeral', text: `Bạn không có quyền chạy ${command.name}.` });
+      await ack({ response_type: 'ephemeral', text: `You are not allowed to run ${command.name}.` });
       return;
     }
     let input: JobInput;
@@ -169,7 +169,7 @@ for (const command of registry.commands) {
       return;
     }
     const jobId = newJobId();
-    await ack({ response_type: 'ephemeral', text: `Đã nhận yêu cầu ${command.name} ${jobLabel(jobId)}.` });
+    await ack({ response_type: 'ephemeral', text: `Received ${command.name} request ${jobLabel(jobId)}.` });
     await enqueue(command, input, { channelId: slash.channel_id, userId: slash.user_id, jobId })
       .catch((error) => logger.error(error));
   });
@@ -181,7 +181,7 @@ async function onStart({ id: jobId }: { id: string }): Promise<void> {
   const job = getJob(db, jobId);
   if (!job) return;
   updateJob(db, jobId, { status: 'running', startedAt: new Date().toISOString(), announced: 1 });
-  // Jobs that had to wait were announced as "Đã thêm … vào hàng đợi"; say they are running now.
+  // Jobs that had to wait were announced as "Added … to the queue"; say they are running now.
   const command = registry.getCommand(job.command);
   if (!job.announced && command) await postToThread(job, runningMessage(jobId, command, job.input));
   await logs.start(job);
@@ -199,16 +199,16 @@ async function onFinish(jobId: string, result: JobResult): Promise<void> {
   });
   await logs.finish(jobId);
   if (result.ok) {
-    await postToThread(job, `${jobLabel(jobId)} hoàn tất`);
+    await postToThread(job, `${jobLabel(jobId)} completed`);
     return;
   }
   if (result.cancelled) {
-    await postToThread(job, `${jobLabel(jobId)} đã bị huỷ${result.cancelledBy ? ` bởi <@${result.cancelledBy}>` : ''}`);
+    await postToThread(job, `${jobLabel(jobId)} cancelled${result.cancelledBy ? ` by <@${result.cancelledBy}>` : ''}`);
     return;
   }
   // Output is already in the live log; only add the reason when the runner stopped the command itself.
   const detail = result.reason ? `: ${truncate(result.reason, 500)}` : ` (exit code: ${result.exitCode ?? 'n/a'})`;
-  await postToThread(job, `${jobLabel(jobId)} thất bại${detail}`);
+  await postToThread(job, `${jobLabel(jobId)} failed${detail}`);
 }
 
 async function onEvent(jobId: string, event: RunnerEvent): Promise<void> {
@@ -237,14 +237,14 @@ async function onEvent(jobId: string, event: RunnerEvent): Promise<void> {
 // Commands die with the process, so jobs that were running are failed; queued jobs resume in order.
 async function recoverJobs(): Promise<void> {
   for (const job of listJobs(db, ['running', 'waiting_input'])) {
-    const reason = 'Bị gián đoạn do bot khởi động lại.';
+    const reason = 'Interrupted because the bot restarted.';
     updateJob(db, job.id, { status: 'failed', finishedAt: new Date().toISOString(), errorSummary: reason });
-    await postToThread(job, `${jobLabel(job.id)} thất bại: ${reason}`);
+    await postToThread(job, `${jobLabel(job.id)} failed: ${reason}`);
   }
   for (const job of listJobs(db, ['queued'])) {
     // UUID ids come from the first version, whose queue no longer exists; never start those stale jobs.
     if (!/^job-\d+$/.test(job.id)) {
-      updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString(), errorSummary: 'Job cũ (trước khi đánh số #N), không chạy lại.' });
+      updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString(), errorSummary: 'Legacy job (from before #N numbering); not re-run.' });
       continue;
     }
     const command = registry.getCommand(job.command);

@@ -32,10 +32,10 @@ export function acquireLock(filename: string): () => void {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       const pid = Number(fs.readFileSync(filename, 'utf8'));
       if (pid && pid !== process.pid && isAlive(pid)) {
-        throw new Error(`Bot đang chạy ở tiến trình khác (PID ${pid}). Chỉ được chạy một bản. Lock file: ${path.resolve(filename)}`);
+        throw new Error(`The bot is already running in another process (PID ${pid}). Only one instance may run. Lock file: ${path.resolve(filename)}`);
       }
       fs.rmSync(filename, { force: true });
     }
   }
-  throw new Error(`Không lấy được lock ${path.resolve(filename)}`);
+  throw new Error(`Could not acquire lock ${path.resolve(filename)}`);
 }

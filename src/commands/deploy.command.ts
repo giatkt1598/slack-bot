@@ -4,7 +4,7 @@ import type { CommandDefinition } from '../types.ts';
 
 export default {
   name: 'deploy',
-  description: 'Chạy `gcmd deploy --ticket <TICKET>` (tuần tự, có hỏi xác nhận).',
+  description: 'Run `gcmd deploy --ticket <TICKET>` (sequential, asks for confirmation).',
   usage: 'deploy GCD-123',
   slashCommand: '/deploy',
   queue: { name: 'deploy', concurrency: 1 },

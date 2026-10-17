@@ -19,7 +19,7 @@ function fakeClient(ts: string) {
   return { client, posts };
 }
 
-test('says "Đã thêm … vào hàng đợi" only when the job has to wait', async (t) => {
+test('says "Added … to the queue" only when the job has to wait', async (t) => {
   const { db } = await tempDatabase(t);
   const deploy = bundledCommand('deploy');
   const status = bundledCommand('status');
@@ -37,10 +37,10 @@ test('says "Đã thêm … vào hàng đợi" only when the job has to wait', as
   await enqueue(status, true, 'job-4');
 
   assert.deepEqual(posts.map((post) => post.text), [
-    '#1 Đang chạy lệnh `gcmd deploy --ticket GCD-111`',
-    'Đã thêm #2 `gcmd deploy --ticket GCD-111` vào hàng đợi',
-    '#3 Đang chạy lệnh `gcmd status --ticket GCD-111`',
-    'Đã thêm #4 `gcmd status --ticket GCD-111` vào hàng đợi'
+    '#1 Running `gcmd deploy --ticket GCD-111`',
+    'Added #2 `gcmd deploy --ticket GCD-111` to the queue',
+    '#3 Running `gcmd status --ticket GCD-111`',
+    'Added #4 `gcmd status --ticket GCD-111` to the queue'
   ]);
   assert.equal(getJob(db, 'job-1')?.announced, true);
   assert.equal(getJob(db, 'job-2')?.announced, false);
@@ -70,7 +70,7 @@ test('enqueueJob posts top-level in DMs and threads in channels', async (t) => {
   await enqueueJob({ ...options, channelId: 'C1', replyThreadTs: '5.5', jobId: 'job-3' });
 
   assert.equal(posts[0].thread_ts, undefined);
-  assert.equal(posts[0].text, '#1 Đang chạy lệnh `gcmd deploy --ticket GCD-1`');
+  assert.equal(posts[0].text, '#1 Running `gcmd deploy --ticket GCD-1`');
   assert.equal(getJob(db, 'job-1')?.threadTs, undefined);
   assert.equal(getJob(db, 'job-2')?.threadTs, '200.1');
   assert.equal(posts[2].thread_ts, '5.5');

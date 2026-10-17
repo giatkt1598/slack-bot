@@ -148,12 +148,13 @@ Phải thấy `⚡ Slack bot is running in Socket Mode (actions: …)`. `gcmd` p
 ### Tự chạy khi đăng nhập Windows (Task Scheduler)
 
 ```powershell
-npm run register                # tạo task "SlackCommandRunner": tự chạy bot mỗi khi bạn đăng nhập Windows
+npm run register                # tạo task: tự chạy bot mỗi khi bạn đăng nhập Windows
 npm run register -- -StartNow   # tạo task và chạy luôn bây giờ
-npm run unregister              # gỡ task và dừng bot mà task đang chạy
+npm run unregister              # gỡ task (và folder), dừng bot mà task đang chạy
 ```
 
-- Task chạy `node src/index.ts` (không nodemon) bằng tài khoản Windows của bạn, không cần quyền admin, cửa sổ ẩn.
+- Task nằm trong folder riêng: **Task Scheduler Library › SlackBot › SlackCommandRunner** (mở Task Scheduler từ Windows Search). `unregister` xoá cả folder khi nó trống.
+- Task chạy `node src/index.ts` (không nodemon) bằng tài khoản Windows của bạn, không cần quyền admin, qua launcher ẩn `scripts/run-bot.vbs` (`wscript.exe`) nên không hiện cửa sổ console.
 - Log ghi thêm vào `data/bot.log`.
 - Không giới hạn thời gian chạy; nếu task lỗi thì tự chạy lại sau 1 phút. Chạy lại `npm run register` để cập nhật task (ví dụ sau khi đổi thư mục dự án hoặc phiên bản Node).
 - **Chỉ được chạy một bản**: khi task đang chạy thì không chạy thêm `npm run start`/`serve` (và ngược lại) — bản thứ hai sẽ thoát với `Bot đang chạy ở tiến trình khác (PID …)`.

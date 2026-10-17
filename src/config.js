@@ -15,7 +15,6 @@ const config = {
   databasePath: process.env.DATABASE_PATH || './data/slack-bot.sqlite',
   commandTimeoutMs: Number(process.env.COMMAND_TIMEOUT_MS || 1800000),
   inputTimeoutMs: Number(process.env.INPUT_TIMEOUT_MS || 1800000),
-  gcmdBin: process.env.GCMD_BIN || 'gcmd',
   authorizedChannelIds: csv(process.env.AUTHORIZED_CHANNEL_IDS),
   authorizedUserIds: csv(process.env.AUTHORIZED_USER_IDS),
   logLevel: process.env.LOG_LEVEL || 'info'

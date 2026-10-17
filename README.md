@@ -41,7 +41,6 @@ Create one file in `src/actions/` — it is loaded automatically:
 
 ```js
 // src/actions/restart.js
-const { config } = require('../config');
 const { validateTicket } = require('../shared/validators');
 
 module.exports = {
@@ -54,7 +53,7 @@ module.exports = {
   promptPatterns: [/\[y\/n\]\s*$/i],                 // optional; idle partial lines are detected anyway
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  command: (input) => ({ file: config.gcmdBin, args: ['restart', '--ticket', input.ticket] })
+  command: (input) => ({ file: 'gcmd', args: ['restart', '--ticket', input.ticket] })
 };
 ```
 

@@ -11,5 +11,5 @@ module.exports = {
   promptPatterns: [/\[y\/n\]\s*$/i],
   parse: (argsText) => ({ ticket: argsText.trim() }),
   validate: (input) => ({ ticket: validateTicket(input.ticket) }),
-  command: (input) => ({ file: config.gcmdBin, args: ['deploy', '--ticket', input.ticket] })
+  command: (input) => ({ file: 'gcmd', args: ['deploy', '--ticket', input.ticket] })
 };

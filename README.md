@@ -3,7 +3,7 @@
 Bot Slack nhận lệnh từ người dùng (ví dụ `deploy GCD-123`), xếp vào hàng đợi và chạy lệnh ngay trên máy Windows có `gcmd` — tất cả trong **một tiến trình Node.js**. Trong lúc lệnh chạy:
 
 - output của lệnh được stream trực tiếp vào thread Slack (một message log tự cập nhật);
-- khi lệnh hỏi (ví dụ `Are you sure? [Y/n]`), bot đăng `❓ <câu hỏi>`; người dùng reply trong thread và câu trả lời được đưa thẳng vào lệnh;
+- khi lệnh hỏi (ví dụ `Are you sure? [Y/n]`), bot đăng `❓ [#N] <câu hỏi>`; người dùng reply trong thread và câu trả lời được đưa thẳng vào lệnh;
 - xong thì bot báo `#N hoàn tất` hoặc `#N thất bại …`.
 
 Lệnh có sẵn:
@@ -170,14 +170,14 @@ Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ
 
 ### Theo dõi và trả lời
 
-**Nhắn riêng (DM):** bot trả lời thẳng vào cuộc trò chuyện, không dùng thread. Khi bot đăng `❓ …`, chỉ cần nhắn câu trả lời như tin nhắn bình thường:
+**Nhắn riêng (DM):** bot trả lời thẳng vào cuộc trò chuyện, không dùng thread. Khi bot đăng `❓ [#N] …`, chỉ cần nhắn câu trả lời như tin nhắn bình thường:
 
 ```
 #1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
 📜 Log (đang chạy…)
-❓ Are you sure you want to deploy GCD-123 to production? [Y/n]
+❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
 Y                                                 ← bạn nhắn
-❓ Release note (optional):
+❓ [#1] Release note (optional):
 fix login                                         ← bạn nhắn
 #1 hoàn tất
 ```
@@ -189,9 +189,9 @@ fix login                                         ← bạn nhắn
 ```
 #1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
   └ 📜 Log (đang chạy…)                           ← tự cập nhật ~2 giây/lần
-  └ ❓ Are you sure you want to deploy GCD-123 to production? [Y/n]
+  └ ❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
   └ (bạn reply: Y)                                ← bot không trả lời, câu trả lời hiện trong log
-  └ ❓ Release note (optional):
+  └ ❓ [#1] Release note (optional):
   └ (bạn reply: fix login)
   └ #1 hoàn tất
 ```

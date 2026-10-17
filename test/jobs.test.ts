@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage } from '../src/bot/jobs.ts';
+import { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage, promptMessage } from '../src/bot/jobs.ts';
 import type { EnqueueOptions } from '../src/bot/jobs.ts';
 import type { SlackMessage } from '../src/bot/slack.ts';
 import { getJob } from '../src/shared/db.ts';
@@ -45,6 +45,13 @@ test('says "Đã thêm … vào hàng đợi" only when the job has to wait', as
   assert.equal(getJob(db, 'job-1')?.announced, true);
   assert.equal(getJob(db, 'job-2')?.announced, false);
   assert.deepEqual(enqueued, ['job-1', 'job-2', 'job-3', 'job-4']);
+});
+
+test('prompt messages name the job that is asking', () => {
+  assert.equal(
+    promptMessage('job-12', 'Are you sure you want to deploy GCD-1 to production? [Y/n]'),
+    '❓ [#12] Are you sure you want to deploy GCD-1 to production? [Y/n]'
+  );
 });
 
 test('isDirectMessage recognises DM conversation ids', () => {

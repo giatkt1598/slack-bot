@@ -16,6 +16,8 @@ export const runningMessage = (jobId: string, action: Action, input: JobInput) =
   `${jobLabel(jobId)} Đang chạy lệnh ${commandText(action, input)}`;
 export const queuedMessage = (jobId: string, action: Action, input: JobInput) =>
   `Đã thêm ${jobLabel(jobId)} ${commandText(action, input)} vào hàng đợi`;
+// Names the job so answers aren't mixed up when several jobs ask at once (especially in a flat DM).
+export const promptMessage = (jobId: string, prompt: string) => `❓ [${jobLabel(jobId)}] ${prompt}`;
 
 export interface EnqueueOptions {
   client: SlackClient;

@@ -7,7 +7,7 @@ import { acquireLock } from './shared/lock.ts';
 import { createDatabase, updateJob, getJob, listJobs, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from './shared/db.ts';
 import { createScheduler } from './worker/scheduler.ts';
 import { createCommands, parseCancel, toPlainText } from './bot/commands.ts';
-import { enqueueJob, toJobId, jobLabel, runningMessage } from './bot/jobs.ts';
+import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage } from './bot/jobs.ts';
 import { createLogStreams } from './bot/logStream.ts';
 import type { Action, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
 
@@ -212,7 +212,7 @@ async function onEvent(jobId: string, event: RunnerEvent): Promise<void> {
       break;
     case 'prompt':
       updateJob(db, job.id, { status: 'waiting_input' });
-      await postToThread(job, `❓ ${event.text}`);
+      await postToThread(job, promptMessage(job.id, event.text));
       break;
     case 'input-received':
       // Piped stdin is not echoed by the command, so show the answer in the log like a terminal would.

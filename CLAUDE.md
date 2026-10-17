@@ -39,7 +39,7 @@ Key points:
 - **Thread routing in channels** (`src/index.ts`): a message in a thread that `findActiveJobByThread` maps to a queued/running/waiting job is an answer → `forwardInput` → `scheduler.sendInput`; otherwise @mentions go to `runChatCommand` (unknown text → help). Plain thread replies are handled by the `message` listener and replies that @mention the bot only by `app_mention`, so nothing is processed twice.
 - **Live log** (`src/bot/logStream.ts`): one message per job edited via `chat.update` at most every 2 s, calls serialized per job; output arriving after `finish` is dropped.
 - **Job ids** are `job-N`, shown in Slack as `#N` (`toJobId`/`jobLabel` in `src/bot/jobs.ts`). N is an in-memory counter seeded from `maxJobNumber(db)` — safe only because a single instance runs.
-- **Slack messages are deliberately terse**: prompts are posted as `❓ <prompt text>`, answers are not acknowledged (they're appended to the live log via the `input-received` event), and completion is just `#N hoàn tất` / `#N thất bại …`.
+- **Slack messages are deliberately terse**: prompts are posted as `❓ [#N] <prompt text>` (`promptMessage`), answers are not acknowledged (they're appended to the live log via the `input-received` event), and completion is just `#N hoàn tất` / `#N thất bại …`.
 - Args are always arrays, never shell strings; `src/shared/validators.ts` `ticketPattern` is the injection guard (tested).
 - Empty `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` means allow everyone; the same check gates answering prompts and cancelling.
 - User-facing Slack text is Vietnamese.

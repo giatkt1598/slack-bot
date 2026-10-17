@@ -27,11 +27,13 @@ const registry = defineActions([
     { name: 'ask', concurrency: 1 }, { promptPatterns: [/\[y\/n\]\s*$/i] })
 ]);
 
-function setup() {
+// `failReport` makes onFinish reject for those job ids (e.g. Slack being down while reporting).
+function setup({ failReport = [] as string[] } = {}) {
   const timeline: string[] = [];
   const events = new Map<string, RunnerEvent[]>();
   const results = new Map<string, JobResult>();
   const waiters = new Map<string, (result: JobResult) => void>();
+  const reportWaiters = new Map<string, () => void>();
   const scheduler = createScheduler({
     groups: registry.queueGroups,
     inputTimeoutMs: 5000,
@@ -45,18 +47,28 @@ function setup() {
       events.get(jobId)!.push(event);
       if (event.type === 'output' && !timeline.includes(`output ${jobId}`)) timeline.push(`output ${jobId}`);
     },
-    onFinish: (jobId, result) => {
+    // Reporting takes a while (Slack calls), like the real onFinish.
+    onFinish: async (jobId, result) => {
       timeline.push(`finish ${jobId}`);
       results.set(jobId, result);
       waiters.get(jobId)?.(result);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      timeline.push(`finish-reported ${jobId}`);
+      reportWaiters.get(jobId)?.();
+      if (failReport.includes(jobId)) throw new Error(`report failed for ${jobId}`);
     }
   });
   const enqueue = (id: string, actionName: string, value = '') =>
     scheduler.enqueue({ id, action: registry.getAction(actionName)!, input: { value } });
+  // Resolves when the scheduler hands the result to onFinish.
   const finished = (id: string) => results.has(id)
     ? Promise.resolve(results.get(id)!)
     : new Promise<JobResult>((resolve) => waiters.set(id, resolve));
-  return { scheduler, timeline, events, enqueue, finished };
+  // Resolves once onFinish has completed (the slot is freed right after).
+  const reported = (id: string) => timeline.includes(`finish-reported ${id}`)
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => reportWaiters.set(id, () => setImmediate(resolve)));
+  return { scheduler, timeline, events, enqueue, finished, reported };
 }
 
 test('a concurrency-1 queue runs jobs strictly one after another', async () => {
@@ -65,6 +77,21 @@ test('a concurrency-1 queue runs jobs strictly one after another', async () => {
   enqueue('b', 'serial');
   await finished('b');
   assert.ok(timeline.indexOf('finish a') < timeline.indexOf('start b'), timeline.join(' | '));
+});
+
+test('the next job starts only after the previous job has been fully reported', async () => {
+  const { timeline, enqueue, finished } = setup();
+  enqueue('a', 'serial');
+  enqueue('b', 'serial');
+  await finished('b');
+  assert.ok(timeline.indexOf('finish-reported a') < timeline.indexOf('start b'), timeline.join(' | '));
+});
+
+test('a failing report does not block the queue', async () => {
+  const { enqueue, finished } = setup({ failReport: ['a'] });
+  enqueue('a', 'serial');
+  enqueue('b', 'serial');
+  assert.equal((await finished('b')).ok, true);
 });
 
 test('a concurrency-N queue runs jobs in parallel', async () => {
@@ -77,17 +104,20 @@ test('a concurrency-N queue runs jobs in parallel', async () => {
 });
 
 test('mustWait reflects waiting jobs and busy slots per queue', async () => {
-  const { scheduler, enqueue, finished } = setup();
+  const { scheduler, enqueue, finished, reported } = setup();
   assert.equal(scheduler.mustWait('serial'), false);
   enqueue('a', 'serial');
   assert.equal(scheduler.mustWait('serial'), true);
   assert.equal(scheduler.mustWait('parallel'), false);
   await finished('a');
+  // Still busy while the completion is being reported.
+  assert.equal(scheduler.mustWait('serial'), true);
+  await reported('a');
   assert.equal(scheduler.mustWait('serial'), false);
 });
 
 test('snapshot lists running and waiting jobs per queue in order', async () => {
-  const { scheduler, enqueue, finished } = setup();
+  const { scheduler, enqueue, reported } = setup();
   enqueue('a', 'serial');
   enqueue('b', 'serial');
   enqueue('c', 'serial');
@@ -95,7 +125,7 @@ test('snapshot lists running and waiting jobs per queue in order', async () => {
   assert.deepEqual(serial.active.map((job) => job.id), ['a']);
   assert.deepEqual(serial.waiting.map((job) => job.id), ['b', 'c']);
   assert.equal(serial.concurrency, 1);
-  await finished('c');
+  await reported('c');
   const after = scheduler.snapshot().find((queue) => queue.name === 'serial')!;
   assert.deepEqual([after.active.length, after.waiting.length], [0, 0]);
 });

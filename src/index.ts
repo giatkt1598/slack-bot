@@ -38,7 +38,7 @@ const scheduler = createScheduler({
   inputTimeoutMs: config.inputTimeoutMs,
   onStart,
   onEvent: (jobId, event) => void onEvent(jobId, event).catch(console.error),
-  onFinish: (jobId, result) => void onFinish(jobId, result).catch(console.error)
+  onFinish: (jobId, result) => onFinish(jobId, result).catch(console.error)
 });
 
 const ACTIVE_STATUSES = ['queued', 'running', 'waiting_input'];

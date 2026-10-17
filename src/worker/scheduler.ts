@@ -14,14 +14,16 @@ export interface SchedulerOptions {
   // Awaited before the command spawns, so "#N Đang chạy lệnh" / the log message come before any output.
   onStart(job: ScheduledJob): Promise<void>;
   onEvent(jobId: string, event: RunnerEvent): void;
-  onFinish(jobId: string, result: JobResult): void;
+  // Awaited before the slot is freed, so a job's completion is reported before the next job on its queue starts.
+  onFinish(jobId: string, result: JobResult): Promise<void>;
 }
 
 interface GroupState {
   concurrency: number;
   waiting: ScheduledJob[];
-  // Reserved as soon as a job is taken (run is null until its command has spawned).
-  active: Map<string, { job: ScheduledJob; run: RunningCommand | null }>;
+  // Reserved as soon as a job is taken (run is null until its command has spawned) and kept until its
+  // completion has been reported; `done` marks that the command itself has ended.
+  active: Map<string, { job: ScheduledJob; run: RunningCommand | null; done: boolean }>;
 }
 
 export interface QueueSnapshot {
@@ -47,8 +49,12 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     return state;
   }
 
+  // The queue whose slot holds this job while its command can still be reached (not yet ended).
   function stateOf(jobId: string): GroupState | undefined {
-    return [...states.values()].find((state) => state.active.has(jobId));
+    return [...states.values()].find((state) => {
+      const entry = state.active.get(jobId);
+      return entry !== undefined && !entry.done;
+    });
   }
 
   async function execute(state: GroupState, job: ScheduledJob): Promise<JobResult> {
@@ -67,7 +73,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     } catch (error) {
       return failure((error as Error).message);
     }
-    state.active.set(job.id, { job, run });
+    state.active.set(job.id, { job, run, done: false });
     // A cancel that arrived while onStart was still running.
     if (cancelledBy.has(job.id)) run.kill('Job đã bị huỷ.');
     const result = await run.result;
@@ -77,17 +83,20 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
   function pump(state: GroupState): void {
     while (state.active.size < state.concurrency && state.waiting.length) {
       const job = state.waiting.shift()!;
-      state.active.set(job.id, { job, run: null });
+      state.active.set(job.id, { job, run: null, done: false });
       execute(state, job)
         .catch((error: Error) => failure(error.message))
         .then((result) => {
+          const entry = state.active.get(job.id);
+          if (entry) entry.done = true;
+          return onFinish(job.id, result);
+        })
+        // A failed report (e.g. Slack down) must not block the queue.
+        .catch((error) => console.error(error))
+        .finally(() => {
           state.active.delete(job.id);
           cancelledBy.delete(job.id);
-          try {
-            onFinish(job.id, result);
-          } finally {
-            pump(state);
-          }
+          pump(state);
         });
     }
   }

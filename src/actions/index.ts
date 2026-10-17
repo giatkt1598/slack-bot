@@ -5,7 +5,7 @@ import { config } from '../config.ts';
 import type { Action, ActionDefinition, QueueGroup } from '../types.ts';
 
 // Built-in bot commands (see src/bot/commands.ts) that actions must not shadow.
-const reservedNames = ['cancel'];
+const reservedNames = ['cancel', 'queue'];
 
 const requiredFields = {
   name: 'string',

@@ -20,13 +20,22 @@ export function createCommands(actions: Action[]) {
   }
 
   function helpText(): string {
-    const list = [...actions, { usage: 'cancel #3', description: 'Huỷ job đang xếp hàng, đang chạy hoặc đang chờ trả lời.' }]
+    const builtins = [
+      { usage: 'queue', description: 'Xem các job đang chạy và đang đợi trong hàng đợi.' },
+      { usage: 'cancel #3', description: 'Huỷ job đang xếp hàng, đang chạy hoặc đang chờ trả lời.' }
+    ];
+    const list = [...actions, ...builtins]
       .map(({ usage, description }) => `• \`${usage}\` — ${description}`).join('\n');
     return `Tôi chưa hiểu ý bạn. Các lệnh tôi có thể hiểu là:\n${list}\n`
       + '_Gõ trong DM, khi @mention tôi, hoặc dùng slash command. Khi command hỏi, hãy trả lời trong thread của job._';
   }
 
   return { parseCommand, helpText };
+}
+
+// "queue" (optionally "/queue" or with a mention) → true.
+export function isQueueCommand(text: string | undefined): boolean {
+  return /^\/?queue$/i.test(toPlainText(text));
 }
 
 // "cancel #3" / "cancel 3" → { number: 3 }; "cancel" followed by anything else → { number: null }; not a cancel → null.

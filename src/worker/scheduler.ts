@@ -20,8 +20,15 @@ export interface SchedulerOptions {
 interface GroupState {
   concurrency: number;
   waiting: ScheduledJob[];
-  // Reserved as soon as a job is taken (null until its command has spawned).
-  active: Map<string, RunningCommand | null>;
+  // Reserved as soon as a job is taken (run is null until its command has spawned).
+  active: Map<string, { job: ScheduledJob; run: RunningCommand | null }>;
+}
+
+export interface QueueSnapshot {
+  name: string;
+  concurrency: number;
+  active: ScheduledJob[];
+  waiting: ScheduledJob[];
 }
 
 /**
@@ -60,7 +67,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     } catch (error) {
       return failure((error as Error).message);
     }
-    state.active.set(job.id, run);
+    state.active.set(job.id, { job, run });
     // A cancel that arrived while onStart was still running.
     if (cancelledBy.has(job.id)) run.kill('Job đã bị huỷ.');
     const result = await run.result;
@@ -70,7 +77,7 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
   function pump(state: GroupState): void {
     while (state.active.size < state.concurrency && state.waiting.length) {
       const job = state.waiting.shift()!;
-      state.active.set(job.id, null);
+      state.active.set(job.id, { job, run: null });
       execute(state, job)
         .catch((error: Error) => failure(error.message))
         .then((result) => {
@@ -109,15 +116,24 @@ export function createScheduler({ groups, inputTimeoutMs, onStart, onEvent, onFi
     },
     // Writes an answer to a running command's stdin. False when the job is not running.
     sendInput(jobId: string, text: string): boolean {
-      return stateOf(jobId)?.active.get(jobId)?.sendInput(text) ?? false;
+      return stateOf(jobId)?.active.get(jobId)?.run?.sendInput(text) ?? false;
     },
     // Kills a running job (its result arrives through onFinish with cancelled: true). False when not running.
     cancel(jobId: string, by: string): boolean {
       const state = stateOf(jobId);
       if (!state) return false;
       cancelledBy.set(jobId, by);
-      state.active.get(jobId)?.kill('Job đã bị huỷ.');
+      state.active.get(jobId)?.run?.kill('Job đã bị huỷ.');
       return true;
+    },
+    // Running and waiting jobs per queue, in queue order (for the `queue` bot command).
+    snapshot(): QueueSnapshot[] {
+      return [...states].map(([name, state]) => ({
+        name,
+        concurrency: state.concurrency,
+        active: [...state.active.values()].map((entry) => entry.job),
+        waiting: [...state.waiting]
+      }));
     }
   };
 }

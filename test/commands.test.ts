@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { actions } from '../src/actions/index.ts';
-import { createCommands, parseCancel, toPlainText } from '../src/bot/commands.ts';
+import { createCommands, isQueueCommand, parseCancel, toPlainText } from '../src/bot/commands.ts';
+
+test('isQueueCommand matches only the bare "queue" command', () => {
+  for (const text of ['queue', 'Queue', ' queue ', '/queue', '<@U1> queue']) assert.equal(isQueueCommand(text), true);
+  for (const text of ['queues', 'queue #3', 'show queue', '', undefined]) assert.equal(isQueueCommand(text), false);
+});
 
 test('parseCancel accepts "cancel #N" in its usual spellings', () => {
   for (const text of ['cancel #3', 'cancel 3', 'Cancel  #3 ', '<@U1> cancel #3', '/cancel #3']) {
@@ -40,6 +45,7 @@ test('help text lists every registered action', () => {
   assert.match(text, /^Tôi chưa hiểu ý bạn/);
   for (const { usage } of actions) assert.ok(text.includes(usage));
   assert.ok(text.includes('cancel #3'));
+  assert.ok(text.includes('`queue`'));
 });
 
 test('toPlainText strips mentions and decodes Slack escaping', () => {

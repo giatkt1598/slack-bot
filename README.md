@@ -202,6 +202,21 @@ fix login                                         ← bạn nhắn
 - Các job `deploy` chạy lần lượt — job sau ở trạng thái chờ cho tới khi job trước xong. Các job `status` chạy song song.
 - Nếu job phải chờ (đã có job đang đợi, hoặc mọi suất chạy đều bận), bot báo trước `Đã thêm #4 \`gcmd deploy --ticket GCD-111\` vào hàng đợi`, rồi khi job bắt đầu chạy mới báo `#4 Đang chạy lệnh …`. Job chạy được ngay thì chỉ có message `#4 Đang chạy lệnh …`.
 
+### Xem hàng đợi
+
+Gõ `queue` (trong DM, khi @mention bot, hoặc reply trong thread của một job đang chạy) để xem các job đang chạy và đang đợi, theo từng lệnh:
+
+```
+📋 Hàng đợi
+*deploy* (tuần tự)
+• #15 `gcmd deploy --ticket GCD-1` — ❓ đang chờ trả lời · @Gia
+• #16 `gcmd deploy --ticket GCD-2` — ⏳ đang đợi (thứ 1) · @Gia
+*status* (tối đa 4 job song song)
+• #18 `gcmd status --ticket GCD-9` — ▶️ đang chạy · @Gia
+```
+
+Lệnh không có job nào sẽ không được liệt kê; nếu tất cả đều trống, bot trả lời `📋 Hàng đợi trống…`. Giống `cancel`, `queue` luôn được hiểu là lệnh của bot, kể cả khi có job trong DM đang chờ trả lời.
+
 ### Huỷ job
 
 Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply trong thread của job:

@@ -86,6 +86,20 @@ test('mustWait reflects waiting jobs and busy slots per queue', async () => {
   assert.equal(scheduler.mustWait('serial'), false);
 });
 
+test('snapshot lists running and waiting jobs per queue in order', async () => {
+  const { scheduler, enqueue, finished } = setup();
+  enqueue('a', 'serial');
+  enqueue('b', 'serial');
+  enqueue('c', 'serial');
+  const serial = scheduler.snapshot().find((queue) => queue.name === 'serial')!;
+  assert.deepEqual(serial.active.map((job) => job.id), ['a']);
+  assert.deepEqual(serial.waiting.map((job) => job.id), ['b', 'c']);
+  assert.equal(serial.concurrency, 1);
+  await finished('c');
+  const after = scheduler.snapshot().find((queue) => queue.name === 'serial')!;
+  assert.deepEqual([after.active.length, after.waiting.length], [0, 0]);
+});
+
 test('onStart completes before the command produces output', async () => {
   const { timeline, enqueue, finished } = setup();
   enqueue('a', 'serial');

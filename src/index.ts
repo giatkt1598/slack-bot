@@ -6,7 +6,8 @@ import * as registry from './actions/index.ts';
 import { acquireLock } from './shared/lock.ts';
 import { createDatabase, updateJob, getJob, listJobs, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from './shared/db.ts';
 import { createScheduler } from './worker/scheduler.ts';
-import { createCommands, parseCancel, toPlainText } from './bot/commands.ts';
+import { createCommands, isQueueCommand, parseCancel, toPlainText } from './bot/commands.ts';
+import { formatQueueStatus } from './bot/queueStatus.ts';
 import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage } from './bot/jobs.ts';
 import { createLogStreams } from './bot/logStream.ts';
 import type { Action, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
@@ -100,8 +101,15 @@ async function cancelJob({ number, user, here, reply }: { number: number | null;
   if (elsewhere) await reply(`Đang huỷ ${label}…`);
 }
 
-// Returns true when the text was a cancel command (handled), so callers skip their normal routing.
-async function tryCancel({ text, user, here, reply }: { text: string | undefined; user: string; here: Place; reply: Reply }): Promise<boolean> {
+// Built-in bot commands (`cancel #N`, `queue`) are checked before anything else, so they work even while a
+// job waits for an answer. Returns true when the text was one (handled), so callers skip their normal routing.
+async function tryBuiltinCommand({ text, user, here, reply }: { text: string | undefined; user: string; here: Place; reply: Reply }): Promise<boolean> {
+  if (isQueueCommand(text)) {
+    await reply(isAuthorized(here.channel, user)
+      ? formatQueueStatus(scheduler.snapshot(), (jobId) => getJob(db, jobId))
+      : 'Bạn không có quyền xem hàng đợi.');
+    return true;
+  }
   const parsed = parseCancel(text);
   if (!parsed) return false;
   await cancelJob({ number: parsed.number, user, here, reply });
@@ -122,7 +130,7 @@ app.message(async ({ message, say, context, logger }) => {
   if (message.channel_type === 'im') {
     // DMs are one flat conversation: reply top-level; while a job waits for input, the next message is its answer.
     const replyDirect: Reply = (reply) => say({ text: reply });
-    if (await tryCancel({ text, user, here: { channel }, reply: replyDirect })) return;
+    if (await tryBuiltinCommand({ text, user, here: { channel }, reply: replyDirect })) return;
     const waiting = findWaitingJobInChannel(db, channel);
     if (waiting) return void await forwardInput({ job: waiting, text, user, reply: replyDirect });
     return void await runChatCommand({ text, channel, user, reply: replyDirect, logger });
@@ -132,7 +140,7 @@ app.message(async ({ message, say, context, logger }) => {
   const job = threadTs ? findActiveJobByThread(db, channel, threadTs) : null;
   if (!job || String(text).includes(`<@${context.botUserId}>`)) return;
   const reply: Reply = (replyText) => say({ text: replyText, thread_ts: threadTs });
-  if (await tryCancel({ text, user, here: { channel, threadTs }, reply })) return;
+  if (await tryBuiltinCommand({ text, user, here: { channel, threadTs }, reply })) return;
   await forwardInput({ job, text, user, reply });
 });
 
@@ -140,7 +148,7 @@ app.event('app_mention', async ({ event, say, logger }) => {
   const user = event.user ?? '';
   const replyThreadTs = event.thread_ts || event.ts;
   const reply: Reply = (text) => say({ text, thread_ts: replyThreadTs });
-  if (await tryCancel({ text: event.text, user, here: { channel: event.channel, threadTs: replyThreadTs }, reply })) return;
+  if (await tryBuiltinCommand({ text: event.text, user, here: { channel: event.channel, threadTs: replyThreadTs }, reply })) return;
   const job = event.thread_ts ? findActiveJobByThread(db, event.channel, event.thread_ts) : null;
   if (job) return void await forwardInput({ job, text: event.text, user, reply });
   await runChatCommand({ text: event.text, channel: event.channel, user, reply, replyThreadTs, logger });

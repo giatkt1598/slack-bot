@@ -1,7 +1,7 @@
 import { insertJob } from '../shared/db.ts';
 import type { Database } from '../shared/db.ts';
 import type { Scheduler } from '../worker/scheduler.ts';
-import type { Command, ProcessSpec, JobInput } from '../types.ts';
+import type { Command, ProcessSpec, JobInput, JobRecord } from '../types.ts';
 import type { SlackClient } from './slack.ts';
 
 // Job #3 is stored as "job-3" (the format older BullMQ-era rows use too).
@@ -10,6 +10,9 @@ export const jobLabel = (jobId: string) => `#${jobId.replace(/^job-/, '')}`;
 export const formatCommand = ({ file, args }: ProcessSpec) => [file, ...args].join(' ');
 // Slack DM conversation ids start with "D". DMs are one flat conversation: no threads.
 export const isDirectMessage = (channelId: string) => channelId.startsWith('D');
+// In channels, final-state messages start with an @mention of the job's creator so they are notified; DMs need none.
+export const mentionCreator = (job: Pick<JobRecord, 'channelId' | 'userId'>) =>
+  isDirectMessage(job.channelId) ? '' : `<@${job.userId}> `;
 
 const commandText = (command: Command, input: JobInput) => `\`${formatCommand(command.build(input))}\``;
 export const runningMessage = (jobId: string, command: Command, input: JobInput) =>

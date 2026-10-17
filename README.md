@@ -58,6 +58,7 @@ oauth_config:
       - chat:write
       - groups:history
       - im:history
+      - users:read
 settings:
   event_subscriptions:
     bot_events:
@@ -79,7 +80,7 @@ settings:
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch** → name it, pick the workspace.
 2. **Socket Mode** → turn on **Enable Socket Mode**.
 3. **OAuth & Permissions** → **Bot Token Scopes** → add:
-   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`.
+   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`, `users:read`.
 4. **Event Subscriptions** → turn on **Enable Events** → **Subscribe to bot events** → add:
    `app_mention`, `message.channels`, `message.groups`, `message.im` → **Save Changes**.
 5. **App Home** → **Show Tabs** → turn on **Messages Tab** and tick **Allow users to send Slash commands and messages from the messages tab**.
@@ -104,7 +105,9 @@ In each channel where you want to use the bot, type `/invite @Command Runner` (o
 - **Channel ID**: open the channel → click its name → the bottom of the **About** tab shows `Channel ID` (like `C0123…`).
 - **User ID**: open the profile → **⋮** → **Copy member ID** (like `U0123…`).
 
-Put them in `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` (comma-separated). Empty means **everyone is allowed**. The same lists apply to running commands, answering their questions, viewing the queue and cancelling jobs.
+Put them in `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` (comma-separated). Empty means **everyone is allowed**. The same lists apply to running commands, answering their questions and viewing the queue.
+
+**Cancelling is stricter** (see [Cancelling a job](#cancelling-a-job)): with `AUTHORIZED_USER_IDS` set, **only the listed users** can cancel jobs — and any of them can cancel a job started by someone else. Setting it also means only those users can run commands at all. With it empty, only a job's own creator can cancel it.
 
 ---
 
@@ -193,7 +196,7 @@ fix login                                         ← you
   └ (you reply: Y)                                ← the bot doesn't reply; the answer shows up in the log
   └ ❓ [#1] Release note (optional):
   └ (you reply: fix login)
-  └ #1 completed
+  └ @you #1 completed                             ← in channels the creator is @mentioned when the job ends
 ```
 
 - In a channel, answer by **replying in the job's thread**. The answer is sent to the command followed by Enter; an empty reply (just @mentioning the bot) is the same as pressing Enter.
@@ -209,13 +212,13 @@ Type `queue` (in a DM, when @mentioning the bot, or as a reply in the thread of 
 ```
 📋 Queue
 *deploy* (sequential)
-• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · @Gia
-• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · @Gia
+• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · Gia
+• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · Gia
 *status* (up to 4 in parallel)
-• #18 `gcmd status --ticket GCD-9` — ▶️ running · @Gia
+• #18 `gcmd status --ticket GCD-9` — ▶️ running · Gia
 ```
 
-Commands without jobs are left out; if everything is empty the bot replies `📋 The queue is empty…`. Like `cancel`, `queue` is always treated as a bot command, even while a DM job is waiting for an answer.
+It lists **all** jobs, including ones started in other people's DMs. Creators are shown by plain name, never as an @mention, so listing the queue notifies nobody (names are looked up with the `users:read` scope; without it, or if a lookup fails, the user ID is shown instead). Commands without jobs are left out; if everything is empty the bot replies `📋 The queue is empty…`. Like `cancel`, `queue` is always treated as a bot command, even while a DM job is waiting for an answer.
 
 ### Cancelling a job
 
@@ -230,7 +233,8 @@ Type `cancel #3` (or `cancel 3`) — in a DM, when @mentioning the bot, or as a 
 
 - `cancel` is always treated as a cancel command, even while a DM job is waiting for an answer.
 - The cancel message is posted where the job lives (the DM or the job's thread). If you type `cancel` somewhere else, the bot also replies `Cancelling #3…` there.
-- Anyone allowed to use the bot in the job's channel can cancel the job.
+- **Who can cancel:** with `AUTHORIZED_USER_IDS` set, only the listed users — and they can cancel any job, so A can cancel a job started by B. With `AUTHORIZED_USER_IDS` empty, only the user who started the job.
+- In a channel, when someone else cancels your job the bot @mentions you.
 
 ### Troubleshooting
 

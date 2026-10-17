@@ -43,7 +43,9 @@ Key points:
 - **Job ids** are `job-N`, shown in Slack as `#N` (`toJobId`/`jobLabel` in `src/bot/jobs.ts`). N is an in-memory counter seeded from `maxJobNumber(db)` — safe only because a single instance runs.
 - **Slack messages are deliberately terse**: prompts are posted as `❓ [#N] <prompt text>` (`promptMessage`), answers are not acknowledged (they're appended to the live log via the `input-received` event), and completion is just `#N completed` / `#N failed …`.
 - Args are always arrays, never shell strings; `src/shared/validators.ts` `ticketPattern` is the injection guard (tested).
-- Empty `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` means allow everyone; the same check gates answering prompts and cancelling.
+- Empty `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` means allow everyone; the same check (`isAuthorized`) gates running commands, answering prompts and viewing the queue.
+- **Cancel is stricter** (`canCancel` in `src/config.ts`): with `AUTHORIZED_USER_IDS` set only listed users may cancel, and they may cancel anyone's job; with it empty only the job's creator may. Note the coupling: setting the list also restricts who can run commands.
+- **Who gets pinged:** in channels, final-state messages (`completed`/`failed`/interrupted, and `cancelled` when someone else cancelled) start with `mentionCreator(job)` (`<@creator> `); DMs never mention. The `queue` listing shows **all** jobs (including other people's DM jobs) and creators as plain display names via `users.info` (`resolveUserName`, cached; needs the `users:read` scope, falls back to the user ID) — never `<@…>` so it notifies nobody.
 - All user-facing text (Slack messages, errors, script output) is **English**.
 - Docs are maintained in parallel: `README.md` (English) and `README.vi.md` (Vietnamese, same structure; bot message examples stay in English). Update both together.
 

@@ -1,14 +1,14 @@
 import path from 'node:path';
 import { App } from '@slack/bolt';
 import type { Logger } from '@slack/bolt';
-import { config, assertBotConfig, isAuthorized } from './config.ts';
+import { config, assertBotConfig, isAuthorized, canCancel } from './config.ts';
 import * as registry from './commands/index.ts';
 import { acquireLock } from './shared/lock.ts';
 import { createDatabase, updateJob, getJob, listJobs, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from './shared/db.ts';
 import { createScheduler } from './worker/scheduler.ts';
 import { createChatParser, isQueueCommand, parseCancel, toPlainText } from './bot/chat.ts';
-import { formatQueueStatus } from './bot/queueStatus.ts';
-import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage } from './bot/jobs.ts';
+import { formatQueueStatus, queueUserIds } from './bot/queueStatus.ts';
+import { enqueueJob, toJobId, jobLabel, runningMessage, promptMessage, mentionCreator } from './bot/jobs.ts';
 import { createLogStreams } from './bot/logStream.ts';
 import type { Command, JobInput, JobRecord, JobResult, RunnerEvent } from './types.ts';
 
@@ -52,6 +52,23 @@ function postToThread(job: JobRecord, text: string): Promise<unknown> {
   return app.client.chat.postMessage({ channel: job.channelId, thread_ts: job.threadTs, text }).catch(console.error);
 }
 
+const userNames = new Map<string, string>();
+
+// A user's display name as plain text (never an @mention, so listing the queue notifies nobody).
+// Needs the `users:read` scope; without it, or on any lookup error, the user ID is shown instead.
+async function resolveUserName(userId: string): Promise<string> {
+  const cached = userNames.get(userId);
+  if (cached) return cached;
+  try {
+    const { user } = await app.client.users.info({ user: userId });
+    const name = user?.profile?.display_name || user?.real_name || user?.name || userId;
+    userNames.set(userId, name);
+    return name;
+  } catch {
+    return userId;
+  }
+}
+
 const newJobId = () => toJobId(++lastJobNumber);
 
 function enqueue(command: Command, input: JobInput, slack: { channelId: string; userId: string; replyThreadTs?: string; jobId?: string }) {
@@ -89,11 +106,12 @@ async function cancelJob({ number, user, here, reply }: { number: number | null;
   const job = getJob(db, toJobId(number));
   if (!job) return reply(`${label} not found.`);
   if (!ACTIVE_STATUSES.includes(job.status)) return reply(`${label} has already finished.`);
-  if (!isAuthorized(job.channelId, user)) return reply(`You are not allowed to cancel ${label}.`);
+  if (!canCancel(user, job)) return reply(`You are not allowed to cancel ${label}.`);
   const elsewhere = job.channelId !== here.channel || job.threadTs !== here.threadTs;
   if (scheduler.removeQueued(job.id)) {
     updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString() });
-    await postToThread(job, `${label} cancelled by <@${user}>`);
+    // Tell the creator when somebody else cancelled their job (in a channel; a DM already is the creator's own).
+    await postToThread(job, `${user === job.userId ? '' : mentionCreator(job)}${label} cancelled by <@${user}>`);
     if (elsewhere) await reply(`${label} cancelled.`);
     return;
   }
@@ -105,9 +123,14 @@ async function cancelJob({ number, user, here, reply }: { number: number | null;
 // job waits for an answer. Returns true when the text was one (handled), so callers skip their normal routing.
 async function tryBuiltinCommand({ text, user, here, reply }: { text: string | undefined; user: string; here: Place; reply: Reply }): Promise<boolean> {
   if (isQueueCommand(text)) {
-    await reply(isAuthorized(here.channel, user)
-      ? formatQueueStatus(scheduler.snapshot(), (jobId) => getJob(db, jobId))
-      : 'You are not allowed to view the queue.');
+    if (!isAuthorized(here.channel, user)) {
+      await reply('You are not allowed to view the queue.');
+      return true;
+    }
+    const snapshot = scheduler.snapshot();
+    const lookup = (jobId: string) => getJob(db, jobId);
+    const names = new Map(await Promise.all(queueUserIds(snapshot, lookup).map(async (id) => [id, await resolveUserName(id)] as const)));
+    await reply(formatQueueStatus(snapshot, lookup, (id) => names.get(id) ?? id));
     return true;
   }
   const parsed = parseCancel(text);
@@ -177,17 +200,20 @@ async function onFinish(jobId: string, result: JobResult): Promise<void> {
     errorSummary: truncate(result.reason || result.stderrTail)
   });
   await logs.finish(jobId);
+  // In channels the creator is @mentioned so they are notified (DMs need none).
   if (result.ok) {
-    await postToThread(job, `${jobLabel(jobId)} completed`);
+    await postToThread(job, `${mentionCreator(job)}${jobLabel(jobId)} completed`);
     return;
   }
   if (result.cancelled) {
-    await postToThread(job, `${jobLabel(jobId)} cancelled${result.cancelledBy ? ` by <@${result.cancelledBy}>` : ''}`);
+    // Their own cancel needs no mention; somebody else's does.
+    const mention = result.cancelledBy && result.cancelledBy !== job.userId ? mentionCreator(job) : '';
+    await postToThread(job, `${mention}${jobLabel(jobId)} cancelled${result.cancelledBy ? ` by <@${result.cancelledBy}>` : ''}`);
     return;
   }
   // Output is already in the live log; only add the reason when the runner stopped the command itself.
   const detail = result.reason ? `: ${truncate(result.reason, 500)}` : ` (exit code: ${result.exitCode ?? 'n/a'})`;
-  await postToThread(job, `${jobLabel(jobId)} failed${detail}`);
+  await postToThread(job, `${mentionCreator(job)}${jobLabel(jobId)} failed${detail}`);
 }
 
 async function onEvent(jobId: string, event: RunnerEvent): Promise<void> {
@@ -218,7 +244,7 @@ async function recoverJobs(): Promise<void> {
   for (const job of listJobs(db, ['running', 'waiting_input'])) {
     const reason = 'Interrupted because the bot restarted.';
     updateJob(db, job.id, { status: 'failed', finishedAt: new Date().toISOString(), errorSummary: reason });
-    await postToThread(job, `${jobLabel(job.id)} failed: ${reason}`);
+    await postToThread(job, `${mentionCreator(job)}${jobLabel(job.id)} failed: ${reason}`);
   }
   for (const job of listJobs(db, ['queued'])) {
     // UUID ids come from the first version, whose queue no longer exists; never start those stale jobs.

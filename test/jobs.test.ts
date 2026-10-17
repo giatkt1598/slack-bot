@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage, promptMessage } from '../src/bot/jobs.ts';
+import { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage, promptMessage, mentionCreator } from '../src/bot/jobs.ts';
 import type { EnqueueOptions } from '../src/bot/jobs.ts';
 import type { SlackMessage } from '../src/bot/slack.ts';
 import { getJob } from '../src/shared/db.ts';
@@ -52,6 +52,12 @@ test('prompt messages name the job that is asking', () => {
     promptMessage('job-12', 'Are you sure you want to deploy GCD-1 to production? [Y/n]'),
     '❓ [#12] Are you sure you want to deploy GCD-1 to production? [Y/n]'
   );
+});
+
+test('final-state messages @mention the creator in channels but not in DMs', () => {
+  assert.equal(mentionCreator({ channelId: 'C1', userId: 'UB' }), '<@UB> ');
+  assert.equal(mentionCreator({ channelId: 'G1', userId: 'UB' }), '<@UB> ');
+  assert.equal(mentionCreator({ channelId: 'D1', userId: 'UB' }), '');
 });
 
 test('isDirectMessage recognises DM conversation ids', () => {

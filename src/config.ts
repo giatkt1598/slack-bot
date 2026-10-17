@@ -29,3 +29,10 @@ export function isAuthorized(channelId: string, userId: string): boolean {
   const userOk = !config.authorizedUserIds.length || config.authorizedUserIds.includes(userId);
   return channelOk && userOk;
 }
+
+// Who may cancel a job. With AUTHORIZED_USER_IDS set, exactly the listed users — including other people's jobs
+// (A may cancel B's job). Without it nobody is "listed", so only the job's creator may cancel it.
+export function canCancel(userId: string, job: { channelId: string; userId: string }): boolean {
+  if (!isAuthorized(job.channelId, userId)) return false;
+  return config.authorizedUserIds.length > 0 || userId === job.userId;
+}

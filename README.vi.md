@@ -60,6 +60,7 @@ oauth_config:
       - chat:write
       - groups:history
       - im:history
+      - users:read
 settings:
   event_subscriptions:
     bot_events:
@@ -81,7 +82,7 @@ settings:
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch** → đặt tên, chọn workspace.
 2. **Socket Mode** → bật **Enable Socket Mode**.
 3. **OAuth & Permissions** → **Bot Token Scopes** → thêm:
-   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`.
+   `app_mentions:read`, `channels:history`, `chat:write`, `groups:history`, `im:history`, `users:read`.
 4. **Event Subscriptions** → bật **Enable Events** → **Subscribe to bot events** → thêm:
    `app_mention`, `message.channels`, `message.groups`, `message.im` → **Save Changes**.
 5. **App Home** → mục **Show Tabs** → bật **Messages Tab** và tick **Allow users to send Slash commands and messages from the messages tab**.
@@ -106,7 +107,9 @@ Trong kênh muốn dùng bot, gõ `/invite @Command Runner` (hoặc tên bot c�
 - **ID kênh**: mở kênh → bấm tên kênh → cuối tab **About** có dòng `Channel ID` (dạng `C0123…`).
 - **ID người dùng**: mở profile → **⋮** → **Copy member ID** (dạng `U0123…`).
 
-Điền vào `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` (nhiều giá trị cách nhau bằng dấu phẩy). Để trống nghĩa là **ai cũng dùng được**. Cùng danh sách này áp dụng cho việc chạy lệnh, trả lời câu hỏi của lệnh, xem hàng đợi và huỷ job.
+Điền vào `AUTHORIZED_CHANNEL_IDS` / `AUTHORIZED_USER_IDS` (nhiều giá trị cách nhau bằng dấu phẩy). Để trống nghĩa là **ai cũng dùng được**. Cùng danh sách này áp dụng cho việc chạy lệnh, trả lời câu hỏi của lệnh và xem hàng đợi.
+
+**Huỷ job chặt hơn** (xem [Huỷ job](#huỷ-job)): khi đặt `AUTHORIZED_USER_IDS`, **chỉ những người trong danh sách** mới huỷ được job — và ai trong danh sách cũng huỷ được job do người khác tạo. Đặt biến này cũng đồng nghĩa chỉ những người đó mới chạy được lệnh. Khi để trống, chỉ chính người tạo job mới huỷ được job của mình.
 
 ---
 
@@ -195,7 +198,7 @@ fix login                                         ← bạn nhắn
   └ (bạn reply: Y)                                ← bot không trả lời, câu trả lời hiện trong log
   └ ❓ [#1] Release note (optional):
   └ (bạn reply: fix login)
-  └ #1 completed
+  └ @bạn #1 completed                             ← trong kênh, người tạo job được @mention khi job kết thúc
 ```
 
 - Trong kênh, trả lời bằng cách **reply trong thread của job**. Câu trả lời được gửi vào lệnh kèm phím Enter; reply rỗng (chỉ @mention bot) tương đương nhấn Enter.
@@ -211,13 +214,13 @@ Gõ `queue` (trong DM, khi @mention bot, hoặc reply trong thread của một j
 ```
 📋 Queue
 *deploy* (sequential)
-• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · @Gia
-• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · @Gia
+• #15 `gcmd deploy --ticket GCD-1` — ❓ waiting for an answer · Gia
+• #16 `gcmd deploy --ticket GCD-2` — ⏳ queued (position 1) · Gia
 *status* (up to 4 in parallel)
-• #18 `gcmd status --ticket GCD-9` — ▶️ running · @Gia
+• #18 `gcmd status --ticket GCD-9` — ▶️ running · Gia
 ```
 
-Lệnh không có job nào sẽ không được liệt kê; nếu tất cả đều trống, bot trả lời `📋 The queue is empty…`. Giống `cancel`, `queue` luôn được hiểu là lệnh của bot, kể cả khi có job trong DM đang chờ trả lời.
+Danh sách hiện **tất cả** job, kể cả job bắt đầu trong DM của người khác. Người tạo job hiển thị bằng tên thường, không bao giờ là @mention nên xem hàng đợi không làm phiền ai (tên được tra bằng scope `users:read`; nếu thiếu scope hoặc tra lỗi thì hiện user ID). Lệnh không có job nào sẽ không được liệt kê; nếu tất cả đều trống, bot trả lời `📋 The queue is empty…`. Giống `cancel`, `queue` luôn được hiểu là lệnh của bot, kể cả khi có job trong DM đang chờ trả lời.
 
 ### Huỷ job
 
@@ -232,7 +235,8 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 - `cancel` luôn được hiểu là lệnh huỷ, kể cả khi job trong DM đang chờ trả lời.
 - Thông báo huỷ được đăng ở nơi của job (DM hoặc thread của job). Nếu bạn gõ `cancel` ở chỗ khác, bot trả lời thêm `Cancelling #3…` ngay tại chỗ đó.
-- Ai có quyền dùng bot ở kênh của job thì huỷ được job đó.
+- **Ai được huỷ:** khi đặt `AUTHORIZED_USER_IDS`, chỉ những người trong danh sách — và họ huỷ được mọi job, nên A huỷ được job do B tạo. Khi `AUTHORIZED_USER_IDS` để trống, chỉ người đã tạo job.
+- Trong kênh, khi người khác huỷ job của bạn thì bot @mention bạn.
 
 ### Khi có sự cố
 

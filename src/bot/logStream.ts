@@ -1,4 +1,5 @@
 import type { JobRecord } from '../types.ts';
+import { jobLabel } from './jobs.ts';
 import type { SlackClient } from './slack.ts';
 
 const MAX_CHARS = 3500;
@@ -18,9 +19,9 @@ export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
 }
 
-export function render({ text, done }: { text: string; done: boolean }): string {
+export function render({ job, text, done }: { job: Pick<LogTarget, 'id'>; text: string; done: boolean }): string {
   const body = text.length > MAX_CHARS ? `…${text.slice(-MAX_CHARS)}` : text;
-  const header = done ? '📜 *Log* (đã kết thúc)' : '📜 *Log* (đang chạy…)';
+  const header = `📜 *Log ${jobLabel(job.id)}* ${done ? '(đã kết thúc)' : '(đang chạy…)'}`;
   return `${header}\n\`\`\`\n${body.replace(/```/g, 'ʼʼʼ') || '(chưa có output)'}\n\`\`\``;
 }
 

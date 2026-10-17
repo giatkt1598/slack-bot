@@ -174,7 +174,7 @@ Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ
 
 ```
 #1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
-📜 Log (đang chạy…)
+📜 Log #1 (đang chạy…)
 ❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
 Y                                                 ← bạn nhắn
 ❓ [#1] Release note (optional):
@@ -188,7 +188,7 @@ fix login                                         ← bạn nhắn
 
 ```
 #1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
-  └ 📜 Log (đang chạy…)                           ← tự cập nhật ~2 giây/lần
+  └ 📜 Log #1 (đang chạy…)                        ← tự cập nhật ~2 giây/lần
   └ ❓ [#1] Are you sure you want to deploy GCD-123 to production? [Y/n]
   └ (bạn reply: Y)                                ← bot không trả lời, câu trả lời hiện trong log
   └ ❓ [#1] Release note (optional):

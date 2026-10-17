@@ -2,7 +2,9 @@ import type { JobRecord } from '../types.ts';
 import { jobLabel } from './jobs.ts';
 import type { SlackClient } from './slack.ts';
 
-const MAX_CHARS = 3500;
+// The live log message shows the last MAX_CHARS characters of output. Slack truncates a message at 40,000 characters
+// and recommends staying under 4,000, so this is a trade-off between completeness and message height.
+const MAX_CHARS = 10_000;
 
 type LogTarget = Pick<JobRecord, 'id' | 'channelId' | 'threadTs'>;
 

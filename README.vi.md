@@ -204,6 +204,7 @@ fix login                                         ← bạn nhắn
 
 - Trong kênh, trả lời bằng cách **reply trong thread của job**. Câu trả lời được gửi vào lệnh kèm phím Enter; reply rỗng (chỉ @mention bot) tương đương nhấn Enter.
 - Bất kỳ ai có quyền dùng bot đều trả lời được.
+- Message log hiện **10.000 ký tự cuối** của output. Lệnh in nhiều hơn thì phần đầu bị cắt (log bắt đầu bằng `…`). Slack tự cắt message ở 40.000 ký tự, nên giới hạn này (`MAX_CHARS` trong `src/bot/logStream.ts`) không thể nâng lên vô hạn.
 - Không ai trả lời sau `INPUT_TIMEOUT_MS` (mặc định 30 phút) → lệnh bị huỷ: `#1 failed: No answer received in time (30 minutes).`
 - Các job `deploy` chạy lần lượt — job sau ở trạng thái chờ cho tới khi job trước xong (và đã báo `completed`/`failed`). Các job `status` chạy song song.
 - Nếu job phải chờ (đã có job đang đợi, hoặc mọi suất chạy đều bận), bot báo trước `Added #4 \`gcmd deploy --ticket GCD-111\` to the queue`, rồi khi job bắt đầu chạy mới báo `#4 Running …`. Job chạy được ngay thì chỉ có message `#4 Running …`.

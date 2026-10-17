@@ -15,21 +15,33 @@ const valid: ActionDefinition = {
 // Definitions come from files at runtime, so the registry must also reject shapes the types forbid.
 const untyped = (definition: object) => definition as ActionDefinition;
 
-test('loads the bundled actions with sequential deploy and parallel status queues', () => {
-  assert.deepEqual(actions.map((action) => action.name).sort(), ['deploy', 'status']);
+test('loads the bundled actions with sequential deploy and parallel status/ipconfig queues', () => {
+  assert.deepEqual(actions.map((action) => action.name).sort(), ['deploy', 'ipconfig', 'status']);
   assert.equal(getAction('deploy')?.queue.concurrency, 1);
   assert.ok((getAction('status')?.queue.concurrency ?? 0) > 1);
-  assert.deepEqual(queueGroups.map((group) => group.name).sort(), ['deploy', 'status']);
+  assert.ok((getAction('ipconfig')?.queue.concurrency ?? 0) > 1);
+  assert.deepEqual(queueGroups.map((group) => group.name).sort(), ['deploy', 'ipconfig', 'status']);
 });
 
-test('bundled actions build argument arrays without a shell', () => {
-  for (const action of actions) {
+test('ticket actions build argument arrays without a shell', () => {
+  for (const action of actions.filter((candidate) => candidate.name === 'deploy' || candidate.name === 'status')) {
     const input = action.validate(action.parse('GCD-123'));
     const { file, args } = action.command(input);
     assert.equal(typeof file, 'string');
     assert.ok(Array.isArray(args));
     assert.ok(args.includes('GCD-123'));
     assert.throws(() => action.validate(action.parse('GCD-1; whoami')));
+  }
+});
+
+test('ipconfig accepts only "" and "/all" and passes nothing else to the command', () => {
+  const ipconfig = getAction('ipconfig')!;
+  const run = (text: string) => ipconfig.command(ipconfig.validate(ipconfig.parse(text)));
+  assert.deepEqual(run(''), { file: 'ipconfig', args: [] });
+  assert.deepEqual(run('/all'), { file: 'ipconfig', args: ['/all'] });
+  assert.deepEqual(run(' ALL '), { file: 'ipconfig', args: ['/all'] });
+  for (const text of ['/release', '/all & whoami', '; whoami', '/flushdns']) {
+    assert.throws(() => ipconfig.validate(ipconfig.parse(text)), /Chỉ hỗ trợ/);
   }
 });
 

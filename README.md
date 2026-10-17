@@ -12,6 +12,7 @@ Lệnh có sẵn:
 |---|---|---|
 | `deploy GCD-123` | `gcmd deploy --ticket GCD-123` | Tuần tự (mỗi lần 1 job), có hỏi xác nhận |
 | `status GCD-123` | `gcmd status --ticket GCD-123` | Song song (tối đa 4 job) |
+| `ipconfig` / `ipconfig /all` | `ipconfig` / `ipconfig /all` trên máy chạy bot | Song song (tối đa 4 job); chỉ nhận đúng 2 dạng này |
 
 ## Kiến trúc
 

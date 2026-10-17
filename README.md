@@ -1,6 +1,6 @@
 # Slack Command Runner
 
-Bot Slack nhận lệnh từ người dùng (ví dụ `deploy GCD-123`), đưa vào hàng đợi BullMQ/Redis và giao cho một worker Node.js chạy trên máy Windows. Trong lúc lệnh chạy:
+Bot Slack nhận lệnh từ người dùng (ví dụ `deploy GCD-123`), xếp vào hàng đợi và chạy lệnh ngay trên máy Windows có `gcmd` — tất cả trong **một tiến trình Node.js**. Trong lúc lệnh chạy:
 
 - output của lệnh được stream trực tiếp vào thread Slack (một message log tự cập nhật);
 - khi lệnh hỏi (ví dụ `Are you sure? [Y/n]`), bot đăng `❓ <câu hỏi>`; người dùng reply trong thread và câu trả lời được đưa thẳng vào lệnh;
@@ -16,13 +16,16 @@ Lệnh có sẵn:
 ## Kiến trúc
 
 ```
-Slack ──Socket Mode──▶ Bot (Docker) ──BullMQ / Redis pub/sub──▶ Worker (Windows) ──▶ gcmd
-        ◀── message, log, câu hỏi ──┘                ◀── output, prompt, kết quả ──┘
+Slack ◀──Socket Mode──▶ Node.js trên máy Windows ──▶ gcmd
+                        ├─ bot (src/bot/): nhận tin nhắn, hiển thị log, câu hỏi, kết quả
+                        ├─ hàng đợi (src/worker/scheduler.ts): tuần tự / song song theo từng lệnh
+                        └─ SQLite (data/slack-bot.sqlite): lịch sử job, đánh số #N
 ```
 
-- **Bot** (`src/bot/`): chạy trong Docker, nhận tin nhắn từ Slack, xếp job vào hàng đợi, hiển thị log và chuyển câu trả lời tới worker.
-- **Worker** (`src/worker/`): chạy trực tiếp trên máy Windows có `gcmd`, thực thi lệnh và gửi output về.
-- **Redis**: chạy trong Docker, chỉ mở ở `127.0.0.1:6379` cho worker trên cùng máy.
+- Socket Mode chỉ cần kết nối **ra ngoài** tới Slack — không cần mở cổng hay public URL.
+- Không cần Docker, Redis hay dịch vụ hàng đợi riêng.
+- **Chỉ được chạy một bản.** Bản thứ hai sẽ tự thoát với thông báo `Bot đang chạy ở tiến trình khác (PID …)` (lock file `data/slack-bot.lock`).
+- Khi khởi động lại: job đang chạy dở bị báo `#N thất bại: Bị gián đoạn do bot khởi động lại.`; job còn trong hàng đợi được chạy tiếp theo thứ tự.
 
 ---
 
@@ -111,7 +114,7 @@ Trong kênh muốn dùng bot, gõ `/invite @Command Runner` (hoặc tên bot c�
 
 ## 2. Cài đặt và chạy
 
-Yêu cầu: Docker Desktop, Node.js ≥ 24 trên máy Windows có `gcmd`. Dự án viết bằng TypeScript và được Node chạy trực tiếp (không cần bước build).
+Yêu cầu: Node.js ≥ 24 trên máy Windows có `gcmd`. Dự án viết bằng TypeScript và được Node chạy trực tiếp (không cần bước build).
 
 ### Cấu hình
 
@@ -124,38 +127,27 @@ Mở `.env` và điền:
 | Biến | Ý nghĩa | Mặc định |
 |---|---|---|
 | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` | Token ở bước trên | — |
-| `REDIS_HOST`, `REDIS_PORT` | Redis cho worker (bot trong Docker tự dùng `redis`) | `127.0.0.1`, `6379` |
-| `DATABASE_PATH` | File SQLite lưu lịch sử job (trong container bot) | `/data/slack-bot.sqlite` |
-| `QUEUE_PREFIX` | Tiền tố tên hàng đợi trong Redis | `command-jobs` |
+| `DATABASE_PATH` | File SQLite lưu lịch sử job; lock file nằm cùng thư mục | `./data/slack-bot.sqlite` |
 | `COMMAND_TIMEOUT_MS` | Thời gian chạy tối đa của lệnh (không tính lúc chờ trả lời) | 30 phút |
 | `INPUT_TIMEOUT_MS` | Thời gian chờ người dùng trả lời một câu hỏi, quá hạn thì huỷ lệnh | 30 phút |
 | `AUTHORIZED_CHANNEL_IDS`, `AUTHORIZED_USER_IDS` | Giới hạn kênh / người dùng | trống = tất cả |
 
-### Chạy bot và Redis
-
-```powershell
-docker compose up -d --build
-docker logs slack-bot-bot-1    # phải thấy: ⚡ Slack bot is running in Socket Mode (actions: deploy, status)
-```
-
-### Chạy worker (trên máy Windows có `gcmd`)
+### Chạy bot
 
 ```powershell
 npm ci
-npm run start:worker
+npm start      # phải thấy: ⚡ Slack bot is running in Socket Mode (actions: deploy, status)
 ```
 
-Worker in ra một dòng `ready on …` cho mỗi hàng đợi. `gcmd` phải nằm trong `PATH` của tài khoản chạy worker.
+`gcmd` phải nằm trong `PATH` của tài khoản chạy bot. Dừng bằng `Ctrl+C`.
 
-Nếu Docker chạy ở máy khác, đặt `REDIS_HOST` là địa chỉ máy đó và mở cổng Redis trong mạng nội bộ. **Không bao giờ mở Redis ra Internet.**
-
-### Chạy worker tự động khi khởi động máy (Task Scheduler)
+### Chạy tự động khi khởi động máy (Task Scheduler)
 
 Tạo task chạy khi khởi động và tự khởi động lại khi lỗi:
 
 ```text
 Program:   C:\Program Files\nodejs\node.exe
-Arguments: D:\repos\slack-bot\src\worker\index.ts
+Arguments: D:\repos\slack-bot\src\index.ts
 Start in:  D:\repos\slack-bot
 ```
 
@@ -228,17 +220,17 @@ Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply
 
 | Hiện tượng | Nguyên nhân thường gặp |
 |---|---|
-| Bot không phản hồi gì | Bot chưa chạy (`docker logs slack-bot-bot-1`), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
+| Bot không phản hồi gì | Bot chưa chạy (`npm start` / Task Scheduler), thiếu scope/event, hoặc chưa **Reinstall** app sau khi đổi scope; trong kênh thì bot chưa được `/invite` |
 | Reply trong thread bị bỏ qua | Thiếu event `message.channels` / `message.groups` hoặc scope `channels:history` / `groups:history` |
-| Job đứng mãi ở "Đang chạy lệnh…" mà không có log | Worker chưa chạy hoặc không kết nối được Redis |
-| `⚠️ Không có worker nào đang chạy #N` | Worker đã dừng giữa chừng khi lệnh đang chờ trả lời |
-| `#N thất bại: spawn gcmd ENOENT` | `gcmd` không nằm trong `PATH` của worker |
+| `Bot đang chạy ở tiến trình khác (PID …)` khi khởi động | Đã có một bản đang chạy (ví dụ từ Task Scheduler). Tắt bản đó trước |
+| `#N thất bại: Bị gián đoạn do bot khởi động lại.` | Bot bị tắt/khởi động lại khi job đang chạy; chạy lại lệnh nếu cần |
+| `#N thất bại: spawn gcmd ENOENT` | `gcmd` không nằm trong `PATH` của tài khoản chạy bot |
 
 ---
 
 ## 4. Thêm lệnh mới
 
-Tạo một file trong `src/actions/` — bot và worker tự nạp, help text và cú pháp chat tự cập nhật:
+Tạo một file trong `src/actions/` — bot tự nạp, help text và cú pháp chat tự cập nhật:
 
 ```ts
 // src/actions/restart.ts
@@ -263,7 +255,7 @@ Lưu ý:
 
 - Import tương đối phải ghi rõ đuôi `.ts`; chạy `npm run typecheck` để kiểm tra kiểu.
 - Luôn truyền tham số dưới dạng mảng `args` và kiểm tra mọi giá trị người dùng nhập trong `validate` — **không bao giờ ghép thành chuỗi lệnh shell**.
-- Khởi động lại cả bot (`docker compose up -d --build bot`) và worker sau khi thêm lệnh.
+- Khởi động lại bot sau khi thêm lệnh.
 
 ---
 

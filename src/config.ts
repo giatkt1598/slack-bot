@@ -9,11 +9,6 @@ function csv(value: string | undefined): string[] {
 export const config = {
   slackBotToken: process.env.SLACK_BOT_TOKEN,
   slackAppToken: process.env.SLACK_APP_TOKEN,
-  redis: {
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    port: Number(process.env.REDIS_PORT || 6379)
-  },
-  queuePrefix: process.env.QUEUE_PREFIX || 'command-jobs',
   databasePath: process.env.DATABASE_PATH || './data/slack-bot.sqlite',
   commandTimeoutMs: Number(process.env.COMMAND_TIMEOUT_MS || 1800000),
   inputTimeoutMs: Number(process.env.INPUT_TIMEOUT_MS || 1800000),

@@ -6,13 +6,11 @@ import type { SlackMessage } from '../src/bot/slack.ts';
 import { getJob } from '../src/shared/db.ts';
 import { bundledAction, tempDatabase } from './helpers.ts';
 
-type Counts = Partial<Record<'waiting' | 'prioritized' | 'delayed' | 'active', number>>;
-
-function fakeQueue(counts: Counts = {}): EnqueueOptions['queue'] {
-  return {
-    add: async () => undefined,
-    getJobCounts: async () => ({ waiting: 0, prioritized: 0, delayed: 0, active: 0, ...counts })
-  } as unknown as EnqueueOptions['queue'];
+// A scheduler stand-in: `waits` is what mustWait answers; enqueued job ids are recorded.
+function fakeScheduler(waits = false) {
+  const enqueued: string[] = [];
+  const scheduler: EnqueueOptions['scheduler'] = { mustWait: () => waits, enqueue: (job) => void enqueued.push(job.id) };
+  return { scheduler, enqueued };
 }
 
 function fakeClient(ts: string) {
@@ -23,16 +21,20 @@ function fakeClient(ts: string) {
 
 test('says "Đã thêm … vào hàng đợi" only when the job has to wait', async (t) => {
   const { db } = await tempDatabase(t);
-  const deploy = bundledAction('deploy'); // concurrency 1
-  const status = bundledAction('status'); // concurrency 4
+  const deploy = bundledAction('deploy');
+  const status = bundledAction('status');
   const { client, posts } = fakeClient('1.1');
-  const enqueue = (action: typeof deploy, counts: Counts, jobId: string) =>
-    enqueueJob({ client, db, queue: fakeQueue(counts), action, input: { ticket: 'GCD-111' }, channelId: 'D1', userId: 'U1', jobId });
+  const enqueued: string[] = [];
+  const enqueue = (action: typeof deploy, waits: boolean, jobId: string) => {
+    const fake = fakeScheduler(waits);
+    return enqueueJob({ client, db, scheduler: fake.scheduler, action, input: { ticket: 'GCD-111' }, channelId: 'D1', userId: 'U1', jobId })
+      .then(() => enqueued.push(...fake.enqueued));
+  };
 
-  await enqueue(deploy, {}, 'job-1');
-  await enqueue(deploy, { active: 1 }, 'job-2');
-  await enqueue(status, { active: 1 }, 'job-3');
-  await enqueue(status, { waiting: 1 }, 'job-4');
+  await enqueue(deploy, false, 'job-1');
+  await enqueue(deploy, true, 'job-2');
+  await enqueue(status, false, 'job-3');
+  await enqueue(status, true, 'job-4');
 
   assert.deepEqual(posts.map((post) => post.text), [
     '#1 Đang chạy lệnh `gcmd deploy --ticket GCD-111`',
@@ -42,6 +44,7 @@ test('says "Đã thêm … vào hàng đợi" only when the job has to wait', as
   ]);
   assert.equal(getJob(db, 'job-1')?.announced, true);
   assert.equal(getJob(db, 'job-2')?.announced, false);
+  assert.deepEqual(enqueued, ['job-1', 'job-2', 'job-3', 'job-4']);
 });
 
 test('isDirectMessage recognises DM conversation ids', () => {
@@ -53,7 +56,7 @@ test('isDirectMessage recognises DM conversation ids', () => {
 test('enqueueJob posts top-level in DMs and threads in channels', async (t) => {
   const { db } = await tempDatabase(t);
   const { client, posts } = fakeClient('200.1');
-  const options = { client, db, queue: fakeQueue(), action: bundledAction('deploy'), input: { ticket: 'GCD-1' }, userId: 'U1' };
+  const options = { client, db, scheduler: fakeScheduler().scheduler, action: bundledAction('deploy'), input: { ticket: 'GCD-1' }, userId: 'U1' };
 
   await enqueueJob({ ...options, channelId: 'D1', replyThreadTs: '9.9', jobId: 'job-1' });
   await enqueueJob({ ...options, channelId: 'C1', jobId: 'job-2' });

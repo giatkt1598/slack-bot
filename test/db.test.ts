@@ -2,8 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import initSqlJs from 'sql.js';
-import { createDatabase, insertJob, updateJob, getJob, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from '../src/shared/db.ts';
+import { createDatabase, insertJob, updateJob, getJob, listJobs, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } from '../src/shared/db.ts';
 import { tempDatabase } from './helpers.ts';
+
+test('listJobs returns jobs in the given statuses, oldest first', async (t) => {
+  const { db } = await tempDatabase(t);
+  const base = { action: 'deploy', inputJson: '{}', channelId: 'C1', threadTs: '1.1', userId: 'U1' };
+  insertJob(db, { ...base, id: 'job-2', createdAt: '2026-01-02T00:00:00Z' });
+  insertJob(db, { ...base, id: 'job-1', createdAt: '2026-01-01T00:00:00Z' });
+  insertJob(db, { ...base, id: 'job-3', createdAt: '2026-01-03T00:00:00Z' });
+  updateJob(db, 'job-3', { status: 'running' });
+
+  assert.deepEqual(listJobs(db, ['queued']).map((job) => job.id), ['job-1', 'job-2']);
+  assert.deepEqual(listJobs(db, ['running', 'waiting_input']).map((job) => job.id), ['job-3']);
+});
 
 test('DM jobs have no thread and the newest waiting one is found per conversation', async (t) => {
   const { db } = await tempDatabase(t);

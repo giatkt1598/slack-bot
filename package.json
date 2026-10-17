@@ -2,12 +2,11 @@
   "name": "slack-command-runner",
   "version": "1.0.0",
   "private": true,
-  "description": "Slack command bot with BullMQ and a Windows command worker",
+  "description": "Slack command bot that queues and runs allowlisted commands on a Windows host",
   "type": "module",
-  "main": "src/bot/index.ts",
+  "main": "src/index.ts",
   "scripts": {
-    "start:bot": "node src/bot/index.ts",
-    "start:worker": "node src/worker/index.ts",
+    "start": "node src/index.ts",
     "typecheck": "tsc",
     "test": "node --test \"test/**/*.test.ts\""
   },
@@ -16,10 +15,8 @@
   },
   "dependencies": {
     "@slack/bolt": "^5.1.0",
-    "bullmq": "^6.3.16",
     "cross-spawn": "^7.0.6",
     "dotenv": "^18.0.8",
-    "ioredis": "^6.0.0",
     "sql.js": "^1.15.0"
   },
   "devDependencies": {

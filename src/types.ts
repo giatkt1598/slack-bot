@@ -38,13 +38,6 @@ export interface QueueGroup extends QueueConfig {
   actions: string[];
 }
 
-// BullMQ job payload.
-export interface JobData {
-  action: string;
-  input: JobInput;
-  slack: { channelId: string; threadTs: string; userId: string };
-}
-
 export interface RunResult {
   ok: boolean;
   exitCode: number | null;
@@ -54,10 +47,9 @@ export interface RunResult {
   stderrTail: string;
 }
 
-// BullMQ job return value.
+// What the scheduler reports when a job ends (success, failure, timeout or cancel).
 export interface JobResult extends RunResult {
   cancelledBy?: string;
-  workerId: string;
   finishedAt: string;
 }
 
@@ -66,9 +58,6 @@ export type RunnerEvent =
   | { type: 'prompt'; text: string; expiresAt: string | null }
   | { type: 'prompt-closed' }
   | { type: 'input-received'; text: string };
-
-// Live event published by a worker on the bus.
-export type BusEvent = RunnerEvent & { jobId: string };
 
 export type JobStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed' | 'cancelled';
 

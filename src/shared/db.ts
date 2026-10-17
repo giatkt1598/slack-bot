@@ -134,6 +134,21 @@ export function findWaitingJobInChannel(database: Database, channelId: string): 
   `, [channelId]));
 }
 
+// Jobs in the given statuses, oldest first (used to recover after a restart).
+export function listJobs(database: Database, statuses: JobStatus[]): JobRecord[] {
+  const statement = database.db.prepare(
+    `SELECT * FROM jobs WHERE status IN (${statuses.map(() => '?').join(', ')}) ORDER BY created_at, id`
+  );
+  try {
+    statement.bind(statuses);
+    const jobs: JobRecord[] = [];
+    while (statement.step()) jobs.push(toJob(statement.getAsObject())!);
+    return jobs;
+  } finally {
+    statement.free();
+  }
+}
+
 // Highest N among job ids of the form "job-N" (older rows used UUIDs and are ignored).
 export function maxJobNumber(database: Database): number {
   const row = queryOne(database.db, "SELECT MAX(CAST(SUBSTR(id, 5) AS INTEGER)) AS n FROM jobs WHERE id LIKE 'job-%'", []);

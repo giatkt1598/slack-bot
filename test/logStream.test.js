@@ -33,6 +33,14 @@ test('posts one log message, then edits it in place and marks it finished', asyn
   assert.doesNotMatch(client.calls[2][1].text, /late output/);
 });
 
+test('jobs without a thread (DMs) get a top-level log message', async () => {
+  const client = fakeClient();
+  const logs = createLogStreams(client, { intervalMs: 10 });
+  await logs.start({ id: 'job-dm', channelId: 'D1', threadTs: undefined });
+  assert.equal(client.calls[0][1].thread_ts, undefined);
+  assert.equal(client.calls[0][1].channel, 'D1');
+});
+
 test('render keeps only the tail and neutralises code fences', () => {
   const text = render({ text: `${'x'.repeat(5000)}\`\`\`end`, done: false });
   assert.ok(text.length < 3700);

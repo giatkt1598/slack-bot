@@ -3,9 +3,9 @@ const { config, assertBotConfig, isAuthorized } = require('../config');
 const registry = require('../actions');
 const { createQueue, createQueueEvents } = require('../shared/queue');
 const { createBus } = require('../shared/bus');
-const { createDatabase, updateJob, getJob, findActiveJobByThread, maxJobNumber } = require('../shared/db');
-const { createCommands, toPlainText } = require('./commands');
-const { enqueueJob, toJobId, jobLabel } = require('./jobs');
+const { createDatabase, updateJob, getJob, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber } = require('../shared/db');
+const { createCommands, parseCancel, toPlainText } = require('./commands');
+const { enqueueJob, toJobId, jobLabel, runningMessage } = require('./jobs');
 const { createLogStreams } = require('./logStream');
 
 assertBotConfig();
@@ -55,6 +55,51 @@ async function runChatCommand({ text, channel, user, reply, replyThreadTs, logge
   }
 }
 
+const ACTIVE_STATUSES = ['queued', 'running', 'waiting_input'];
+
+// Removes a job that no worker has picked up yet. False when a worker already started it.
+async function removeQueuedJob(job) {
+  const action = registry.getAction(job.action);
+  const queued = action && await queues.get(action.queue.name).getJob(job.id);
+  if (!queued) return true;
+  try {
+    await queued.remove();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// "cancel #N": queued jobs are removed from their queue; running/waiting jobs are killed by their worker,
+// and the "#N đã bị huỷ" message then comes from onFinished. `here` is where the user typed the command,
+// used to acknowledge when that is not the job's own conversation/thread.
+async function cancelJob({ number, user, here, reply }) {
+  if (!number) return reply('Cú pháp: `cancel #3`');
+  const label = `#${number}`;
+  const job = getJob(db, toJobId(number));
+  if (!job) return reply(`Không tìm thấy ${label}.`);
+  if (!ACTIVE_STATUSES.includes(job.status)) return reply(`${label} đã hoàn thành.`);
+  if (!isAuthorized(job.channelId, user)) return reply(`Bạn không có quyền huỷ ${label}.`);
+  const elsewhere = job.channelId !== here.channel || job.threadTs !== here.threadTs;
+  if (job.status === 'queued' && await removeQueuedJob(job)) {
+    updateJob(db, job.id, { status: 'cancelled', finishedAt: new Date().toISOString() });
+    await postToThread(job, `${label} đã bị huỷ bởi <@${user}>`);
+    if (elsewhere) await reply(`${label} đã bị huỷ.`);
+    return;
+  }
+  const receivers = await bus.sendCancel(job.id, user);
+  if (!receivers) return reply(`⚠️ Không có worker nào đang chạy ${label}.`);
+  if (elsewhere) await reply(`Đang huỷ ${label}…`);
+}
+
+// Returns true when the text was a cancel command (handled), so callers skip their normal routing.
+async function tryCancel({ text, user, here, reply }) {
+  const parsed = parseCancel(text);
+  if (!parsed) return false;
+  await cancelJob({ number: parsed.number, user, here, reply });
+  return true;
+}
+
 // A reply in a running job's thread is the answer to the command's prompt: pass it to the worker's stdin.
 // On success nothing is posted; the answer shows up in the live log (see 'input-received').
 async function forwardInput({ job, text, user, reply }) {
@@ -66,14 +111,20 @@ async function forwardInput({ job, text, user, reply }) {
 
 app.message(async ({ message, say, context, logger }) => {
   if (message.subtype || message.bot_id) return;
-  const reply = (text) => say({ text, thread_ts: message.thread_ts });
-  const job = message.thread_ts && findActiveJobByThread(db, message.channel, message.thread_ts);
   if (message.channel_type === 'im') {
-    if (job) return forwardInput({ job, text: message.text, user: message.user, reply });
-    return runChatCommand({ text: message.text, channel: message.channel, user: message.user, reply, replyThreadTs: message.thread_ts, logger });
+    // DMs are one flat conversation: reply top-level; while a job waits for input, the next message is its answer.
+    const replyDirect = (text) => say({ text });
+    if (await tryCancel({ text: message.text, user: message.user, here: { channel: message.channel }, reply: replyDirect })) return;
+    const waiting = findWaitingJobInChannel(db, message.channel);
+    if (waiting) return forwardInput({ job: waiting, text: message.text, user: message.user, reply: replyDirect });
+    return runChatCommand({ text: message.text, channel: message.channel, user: message.user, reply: replyDirect, logger });
   }
   // Channel messages: only thread replies to an active job. Messages that @mention the bot go to app_mention.
+  const reply = (text) => say({ text, thread_ts: message.thread_ts });
+  const job = message.thread_ts && findActiveJobByThread(db, message.channel, message.thread_ts);
   if (job && !String(message.text).includes(`<@${context.botUserId}>`)) {
+    const here = { channel: message.channel, threadTs: message.thread_ts };
+    if (await tryCancel({ text: message.text, user: message.user, here, reply })) return;
     await forwardInput({ job, text: message.text, user: message.user, reply });
   }
 });
@@ -81,6 +132,8 @@ app.message(async ({ message, say, context, logger }) => {
 app.event('app_mention', async ({ event, say, logger }) => {
   const replyThreadTs = event.thread_ts || event.ts;
   const reply = (text) => say({ text, thread_ts: replyThreadTs });
+  const here = { channel: event.channel, threadTs: replyThreadTs };
+  if (await tryCancel({ text: event.text, user: event.user, here, reply })) return;
   const job = event.thread_ts && findActiveJobByThread(db, event.channel, event.thread_ts);
   if (job) return forwardInput({ job, text: event.text, user: event.user, reply });
   await runChatCommand({ text: event.text, channel: event.channel, user: event.user, reply, replyThreadTs, logger });
@@ -111,7 +164,10 @@ for (const action of registry.actions.filter((candidate) => candidate.slashComma
 async function onActive(jobId) {
   const job = getJob(db, jobId);
   if (!job) return;
-  updateJob(db, jobId, { status: 'running', startedAt: new Date().toISOString() });
+  updateJob(db, jobId, { status: 'running', startedAt: new Date().toISOString(), announced: 1 });
+  // Jobs that had to wait were announced as "Đã thêm … vào hàng đợi"; say they are running now.
+  const action = registry.getAction(job.action);
+  if (!job.announced && action) await postToThread(job, runningMessage(jobId, action, job.input));
   await logs.start(job);
 }
 
@@ -119,7 +175,7 @@ async function onFinished(jobId, result) {
   const job = getJob(db, jobId);
   if (!job) return;
   updateJob(db, jobId, {
-    status: result.ok ? 'succeeded' : 'failed',
+    status: result.ok ? 'succeeded' : result.cancelled ? 'cancelled' : 'failed',
     finishedAt: result.finishedAt || new Date().toISOString(),
     exitCode: result.exitCode,
     outputSummary: truncate(result.stdoutTail),
@@ -127,6 +183,9 @@ async function onFinished(jobId, result) {
   });
   await logs.finish(jobId);
   if (result.ok) return postToThread(job, `${jobLabel(jobId)} hoàn tất`);
+  if (result.cancelled) {
+    return postToThread(job, `${jobLabel(jobId)} đã bị huỷ${result.cancelledBy ? ` bởi <@${result.cancelledBy}>` : ''}`);
+  }
   // Output is already in the live log; only add the reason when the runner stopped the command itself.
   const detail = result.reason ? `: ${truncate(result.reason, 500)}` : ` (exit code: ${result.exitCode ?? 'n/a'})`;
   await postToThread(job, `${jobLabel(jobId)} thất bại${detail}`);

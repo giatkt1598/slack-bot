@@ -82,6 +82,36 @@ test('runtime timeout kills a command that runs too long', async () => {
   assert.match(result.reason, /quá thời gian/);
 });
 
+test('kill() cancels a command that is waiting for input', async () => {
+  const run = runCommand({
+    file: process.execPath,
+    args: [mock, 'deploy', '--ticket', 'GCD-1', '--delay', '0'],
+    timeoutMs: 10000,
+    inputTimeoutMs: 10000,
+    promptPatterns: [/\[y\/n\]\s*$/i],
+    onEvent: (event) => {
+      if (event.type === 'prompt') run.kill('Job đã bị huỷ.');
+    }
+  });
+  const result = await run.result;
+  assert.equal(result.ok, false);
+  assert.equal(result.cancelled, true);
+  assert.equal(result.reason, 'Job đã bị huỷ.');
+});
+
+test('kill() also stops a command that is busy running', async () => {
+  const run = runCommand({ file: process.execPath, args: ['-e', 'setInterval(() => console.log("tick"), 50)'], timeoutMs: 10000 });
+  setTimeout(() => run.kill(), 200);
+  const result = await run.result;
+  assert.equal(result.cancelled, true);
+  assert.match(result.stdoutTail, /tick/);
+});
+
+test('a normal finish is not marked cancelled', async () => {
+  const { result } = await runMock(['status', '--ticket', 'GCD-1']);
+  assert.equal(result.cancelled, false);
+});
+
 test('status runs without prompts', async () => {
   const { result, events } = await runMock(['status', '--ticket', 'GCD-1']);
   assert.equal(result.ok, true);

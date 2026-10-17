@@ -21,9 +21,14 @@ async function createDatabase(filename) {
       finished_at TEXT,
       exit_code INTEGER,
       output_summary TEXT,
-      error_summary TEXT
+      error_summary TEXT,
+      announced INTEGER NOT NULL DEFAULT 1
     );
   `);
+  // announced = the "#N Đang chạy lệnh …" message was posted. Older databases lack the column;
+  // their rows already got that message, hence DEFAULT 1.
+  const columns = db.exec('PRAGMA table_info(jobs)')[0].values.map((column) => column[1]);
+  if (!columns.includes('announced')) db.run('ALTER TABLE jobs ADD COLUMN announced INTEGER NOT NULL DEFAULT 1');
   persist(db, filename);
   return { db, filename };
 }
@@ -35,15 +40,15 @@ function persist(db, filename) {
 function insertJob(database, job) {
   const { db, filename } = database;
   db.run(`
-    INSERT INTO jobs (id, action, input_json, status, slack_channel_id, slack_thread_ts, slack_user_id, created_at)
-    VALUES (?, ?, ?, 'queued', ?, ?, ?, ?)
-  `, [job.id, job.action, job.inputJson, job.channelId, job.threadTs, job.userId, job.createdAt]);
+    INSERT INTO jobs (id, action, input_json, status, slack_channel_id, slack_thread_ts, slack_user_id, created_at, announced)
+    VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?)
+  `, [job.id, job.action, job.inputJson, job.channelId, job.threadTs, job.userId, job.createdAt, job.announced === false ? 0 : 1]);
   persist(db, filename);
 }
 
 function updateJob(database, id, patch) {
   const { db, filename } = database;
-  const allowed = ['status', 'startedAt', 'finishedAt', 'exitCode', 'outputSummary', 'errorSummary'];
+  const allowed = ['status', 'startedAt', 'finishedAt', 'exitCode', 'outputSummary', 'errorSummary', 'announced'];
   const columns = Object.keys(patch).filter((key) => allowed.includes(key));
   if (!columns.length) return;
   const names = columns.map((key) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`));
@@ -68,8 +73,10 @@ function toJob(row) {
     input: JSON.parse(row.input_json),
     status: row.status,
     channelId: row.slack_channel_id,
-    threadTs: row.slack_thread_ts,
-    userId: row.slack_user_id
+    // '' means the job lives in a DM without a thread; undefined makes Slack calls post top-level.
+    threadTs: row.slack_thread_ts || undefined,
+    userId: row.slack_user_id,
+    announced: row.announced !== 0
   };
 }
 
@@ -86,10 +93,18 @@ function findActiveJobByThread(database, channelId, threadTs) {
   `, [channelId, threadTs]));
 }
 
+// The newest job in this conversation that is waiting for an answer (used for flat DM conversations).
+function findWaitingJobInChannel(database, channelId) {
+  return toJob(queryOne(database.db, `
+    SELECT * FROM jobs WHERE slack_channel_id = ? AND status = 'waiting_input'
+    ORDER BY created_at DESC LIMIT 1
+  `, [channelId]));
+}
+
 // Highest N among job ids of the form "job-N" (older rows used UUIDs and are ignored).
 function maxJobNumber(database) {
   const row = queryOne(database.db, "SELECT MAX(CAST(SUBSTR(id, 5) AS INTEGER)) AS n FROM jobs WHERE id LIKE 'job-%'", []);
   return row?.n || 0;
 }
 
-module.exports = { createDatabase, insertJob, updateJob, getJob, findActiveJobByThread, maxJobNumber };
+module.exports = { createDatabase, insertJob, updateJob, getJob, findActiveJobByThread, findWaitingJobInChannel, maxJobNumber };

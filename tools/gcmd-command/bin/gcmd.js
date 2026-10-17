@@ -53,6 +53,7 @@ async function deploy({ ticket, delay, fail }) {
   };
   await step(`[gcmd] Preparing deploy for ${ticket}`);
   await step('[gcmd] Fetching artifacts...');
+  await sleep(30_000);
   await step('[gcmd] warning: cache miss, downloading dependencies', process.stderr);
   await step('[gcmd] Build OK (3 artifacts)');
 

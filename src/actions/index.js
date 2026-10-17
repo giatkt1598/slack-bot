@@ -2,6 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { config } = require('../config');
 
+// Built-in bot commands (see src/bot/commands.js) that actions must not shadow.
+const reservedNames = ['cancel'];
+
 const requiredFields = {
   name: 'string',
   description: 'string',
@@ -21,6 +24,7 @@ function defineActions(definitions) {
     }
     if (!/^[a-z][a-z0-9-]*$/.test(definition.name)) throw new Error(`Action ${label}: tên chỉ gồm a-z, 0-9, "-".`);
     if (byName.has(definition.name)) throw new Error(`Action ${label} bị khai báo trùng.`);
+    if (reservedNames.includes(definition.name)) throw new Error(`Action ${label}: tên này dành cho lệnh có sẵn của bot.`);
     const queue = { name: definition.name, concurrency: 1, ...definition.queue };
     if (!Number.isInteger(queue.concurrency) || queue.concurrency < 1) {
       throw new Error(`Action ${label}: queue.concurrency phải là số nguyên >= 1.`);

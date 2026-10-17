@@ -24,10 +24,15 @@ async function processJob(job, bus) {
       bus.publishEvent({ jobId: job.id, ...event }).catch((error) => log(`publish failed: ${error.message}`));
     }
   });
-  const unsubscribe = await bus.subscribeInput(job.id, (text) => run.sendInput(text));
+  let cancelledBy;
+  const unsubscribe = await bus.subscribeInput(job.id, (text) => run.sendInput(text), ({ by }) => {
+    log(`${job.id} cancelled by ${by}`);
+    cancelledBy = by;
+    run.kill('Job đã bị huỷ.');
+  });
   try {
     const result = await run.result;
-    return { ...result, workerId, finishedAt: new Date().toISOString() };
+    return { ...result, cancelledBy: result.cancelled ? cancelledBy : undefined, workerId, finishedAt: new Date().toISOString() };
   } finally {
     await unsubscribe().catch(() => {});
   }

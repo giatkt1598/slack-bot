@@ -26,7 +26,7 @@ function killTree(child) {
  * for PROMPT_IDLE_MS. While a prompt is open the runtime timeout is paused and inputTimeoutMs applies.
  *
  * Events passed to onEvent: output { stream, text }, prompt { text, expiresAt }, prompt-closed, input-received { text }.
- * Returns { result: Promise<{ ok, exitCode, reason, stdoutTail, stderrTail }>, sendInput(text), kill(reason) }.
+ * Returns { result: Promise<{ ok, exitCode, reason, cancelled, stdoutTail, stderrTail }>, sendInput(text), kill(reason) }.
  */
 function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns = [], onEvent = () => {} }) {
   const child = spawn(file, args, { windowsHide: true, stdio: 'pipe' });
@@ -34,6 +34,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
   let partial = '';
   let promptOpen = false;
   let stopReason = null;
+  let cancelled = false;
   let finished = false;
   let remainingMs = timeoutMs;
   let runStartedAt;
@@ -112,7 +113,7 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
       clearTimeout(inputTimer);
       clearTimeout(idleTimer);
       const reason = stopReason || (error ? error.message : null);
-      resolve({ ok: !reason && exitCode === 0, exitCode, reason, stdoutTail: output.stdout, stderrTail: output.stderr });
+      resolve({ ok: !reason && exitCode === 0, exitCode, reason, cancelled, stdoutTail: output.stdout, stderrTail: output.stderr });
     };
     child.on('error', (error) => finish(null, error));
     child.on('close', (exitCode) => finish(exitCode));
@@ -135,7 +136,13 @@ function runCommand({ file, args = [], timeoutMs, inputTimeoutMs, promptPatterns
     return true;
   }
 
-  return { result, sendInput, kill: (reason = 'Job đã bị huỷ.') => stop(reason) };
+  function kill(reason = 'Job đã bị huỷ.') {
+    if (finished || stopReason) return;
+    cancelled = true;
+    stop(reason);
+  }
+
+  return { result, sendInput, kill };
 }
 
 module.exports = { runCommand, formatDuration };

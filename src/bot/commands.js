@@ -18,7 +18,8 @@ function createCommands(actions) {
   }
 
   function helpText() {
-    const list = actions.map(({ usage, description }) => `• \`${usage}\` — ${description}`).join('\n');
+    const list = [...actions, { usage: 'cancel #3', description: 'Huỷ job đang xếp hàng, đang chạy hoặc đang chờ trả lời.' }]
+      .map(({ usage, description }) => `• \`${usage}\` — ${description}`).join('\n');
     return `Tôi chưa hiểu ý bạn. Các lệnh tôi có thể hiểu là:\n${list}\n`
       + '_Gõ trong DM, khi @mention tôi, hoặc dùng slash command. Khi command hỏi, hãy trả lời trong thread của job._';
   }
@@ -26,4 +27,12 @@ function createCommands(actions) {
   return { parseCommand, helpText };
 }
 
-module.exports = { createCommands, toPlainText };
+// "cancel #3" / "cancel 3" → { number: 3 }; "cancel" followed by anything else → { number: null }; not a cancel → null.
+function parseCancel(text) {
+  const match = toPlainText(text).match(/^\/?cancel(?:\s+(.*))?$/i);
+  if (!match) return null;
+  const number = (match[1] || '').trim().match(/^#?(\d+)$/);
+  return { number: number ? Number(number[1]) : null };
+}
+
+module.exports = { createCommands, parseCancel, toPlainText };

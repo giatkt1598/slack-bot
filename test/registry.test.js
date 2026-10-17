@@ -48,6 +48,7 @@ test('rejects invalid definitions', () => {
   assert.throws(() => defineActions([{ ...valid, command: undefined }]), /command/);
   assert.throws(() => defineActions([valid, valid]), /trùng/);
   assert.throws(() => defineActions([{ ...valid, name: 'Bad Name' }]), /tên/);
+  assert.throws(() => defineActions([{ ...valid, name: 'cancel' }]), /lệnh có sẵn/);
   assert.throws(() => defineActions([{ ...valid, queue: { concurrency: 0 } }]), /concurrency/);
   assert.throws(() => defineActions([
     { ...valid, queue: { name: 'q', concurrency: 1 } },

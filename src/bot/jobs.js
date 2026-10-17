@@ -4,16 +4,33 @@ const { insertJob } = require('../shared/db');
 const toJobId = (number) => `job-${number}`;
 const jobLabel = (jobId) => `#${String(jobId).replace(/^job-/, '')}`;
 const formatCommand = ({ file, args }) => [file, ...args].join(' ');
+// Slack DM conversation ids start with "D". DMs are one flat conversation: no threads.
+const isDirectMessage = (channelId) => String(channelId).startsWith('D');
 
-// Posts the "queued" message (inside replyThreadTs if given, else as a new message whose thread then
-// carries all status updates), records the job and enqueues it on the action's queue.
+const commandText = (action, input) => `\`${formatCommand(action.command(input))}\``;
+const runningMessage = (jobId, action, input) => `${jobLabel(jobId)} Đang chạy lệnh ${commandText(action, input)}`;
+const queuedMessage = (jobId, action, input) => `Đã thêm ${jobLabel(jobId)} ${commandText(action, input)} vào hàng đợi`;
+
+// True when a new job would have to wait: jobs are already waiting, or every concurrency slot is busy.
+async function mustWait(queue, concurrency) {
+  const counts = await queue.getJobCounts('waiting', 'prioritized', 'delayed', 'active');
+  return counts.waiting + counts.prioritized + counts.delayed > 0 || counts.active >= concurrency;
+}
+
+// Posts the first message, records the job and enqueues it on the action's queue. If the job has to wait,
+// the first message is "Đã thêm #N … vào hàng đợi" and "#N Đang chạy lệnh …" follows when it starts (onActive);
+// otherwise "#N Đang chạy lệnh …" is posted right away.
+// In channels, status updates go to replyThreadTs if given, else to the thread of the posted message.
+// In DMs everything is posted top-level; the job's threadTs is '' (no thread).
 async function enqueueJob({ client, db, queue, action, input, channelId, userId, replyThreadTs, jobId }) {
+  const direct = isDirectMessage(channelId);
+  const waits = await mustWait(queue, action.queue.concurrency);
   const root = await client.chat.postMessage({
     channel: channelId,
-    thread_ts: replyThreadTs,
-    text: `${jobLabel(jobId)} Đang chạy lệnh \`${formatCommand(action.command(input))}\``
+    thread_ts: direct ? undefined : replyThreadTs,
+    text: waits ? queuedMessage(jobId, action, input) : runningMessage(jobId, action, input)
   });
-  const threadTs = replyThreadTs || root.ts;
+  const threadTs = direct ? '' : replyThreadTs || root.ts;
   insertJob(db, {
     id: jobId,
     action: action.name,
@@ -21,7 +38,8 @@ async function enqueueJob({ client, db, queue, action, input, channelId, userId,
     channelId,
     threadTs,
     userId,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    announced: !waits
   });
   await queue.add(action.name, {
     action: action.name,
@@ -31,4 +49,4 @@ async function enqueueJob({ client, db, queue, action, input, channelId, userId,
   return jobId;
 }
 
-module.exports = { enqueueJob, toJobId, jobLabel, formatCommand };
+module.exports = { enqueueJob, toJobId, jobLabel, formatCommand, isDirectMessage, runningMessage, queuedMessage, mustWait };

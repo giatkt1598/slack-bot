@@ -1,7 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { actions } = require('../src/actions');
-const { createCommands, toPlainText } = require('../src/bot/commands');
+const { createCommands, parseCancel, toPlainText } = require('../src/bot/commands');
+
+test('parseCancel accepts "cancel #N" in its usual spellings', () => {
+  for (const text of ['cancel #3', 'cancel 3', 'Cancel  #3 ', '<@U1> cancel #3', '/cancel #3']) {
+    assert.deepEqual(parseCancel(text), { number: 3 });
+  }
+  for (const text of ['cancel', 'cancel abc', 'cancel #3 #4', 'cancel #']) {
+    assert.deepEqual(parseCancel(text), { number: null });
+  }
+  for (const text of ['deploy GCD-1', 'cancelled', 'please cancel #3', 'Y', '']) {
+    assert.equal(parseCancel(text), null);
+  }
+});
 
 const { parseCommand, helpText } = createCommands(actions);
 const parsed = (text) => {
@@ -27,6 +39,7 @@ test('help text lists every registered action', () => {
   const text = helpText();
   assert.match(text, /^Tôi chưa hiểu ý bạn/);
   for (const { usage } of actions) assert.ok(text.includes(usage));
+  assert.ok(text.includes('cancel #3'));
 });
 
 test('toPlainText strips mentions and decodes Slack escaping', () => {

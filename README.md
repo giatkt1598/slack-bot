@@ -177,6 +177,22 @@ Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ
 
 ### Theo dõi và trả lời
 
+**Nhắn riêng (DM):** bot trả lời thẳng vào cuộc trò chuyện, không dùng thread. Khi bot đăng `❓ …`, chỉ cần nhắn câu trả lời như tin nhắn bình thường:
+
+```
+#1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
+📜 Log (đang chạy…)
+❓ Are you sure you want to deploy GCD-123 to production? [Y/n]
+Y                                                 ← bạn nhắn
+❓ Release note (optional):
+fix login                                         ← bạn nhắn
+#1 hoàn tất
+```
+
+> Trong DM, khi có job đang chờ trả lời thì tin nhắn tiếp theo **luôn được coi là câu trả lời** (kể cả khi bạn gõ `deploy …`). Trả lời xong rồi mới gửi lệnh mới.
+
+**Trong kênh:** mọi cập nhật của job nằm trong thread của message `#N Đang chạy lệnh …` (hoặc thread nơi bạn @mention bot):
+
 ```
 #1 Đang chạy lệnh `gcmd deploy --ticket GCD-123`
   └ 📜 Log (đang chạy…)                           ← tự cập nhật ~2 giây/lần
@@ -187,10 +203,26 @@ Ticket phải có dạng `CHỮ-SỐ` (ví dụ `GCD-123`). Gõ bất kỳ thứ
   └ #1 hoàn tất
 ```
 
-- Trả lời bằng cách **reply trong thread của job**. Câu trả lời được gửi vào lệnh kèm phím Enter; reply rỗng (chỉ @mention bot) tương đương nhấn Enter.
+- Trong kênh, trả lời bằng cách **reply trong thread của job**. Câu trả lời được gửi vào lệnh kèm phím Enter; reply rỗng (chỉ @mention bot) tương đương nhấn Enter.
 - Bất kỳ ai có quyền dùng bot đều trả lời được.
 - Không ai trả lời sau `INPUT_TIMEOUT_MS` (mặc định 30 phút) → lệnh bị huỷ: `#1 thất bại: Hết thời gian chờ trả lời (30 phút).`
 - Các job `deploy` chạy lần lượt — job sau ở trạng thái chờ cho tới khi job trước xong. Các job `status` chạy song song.
+- Nếu job phải chờ (đã có job đang đợi, hoặc mọi suất chạy đều bận), bot báo trước `Đã thêm #4 \`gcmd deploy --ticket GCD-111\` vào hàng đợi`, rồi khi job bắt đầu chạy mới báo `#4 Đang chạy lệnh …`. Job chạy được ngay thì chỉ có message `#4 Đang chạy lệnh …`.
+
+### Huỷ job
+
+Gõ `cancel #3` (hoặc `cancel 3`) — trong DM, khi @mention bot, hoặc reply trong thread của job:
+
+| Trạng thái job | Bot làm gì |
+|---|---|
+| Đang xếp hàng | Gỡ khỏi hàng đợi, báo `#3 đã bị huỷ bởi @bạn` |
+| Đang chạy / đang chờ trả lời | Kill lệnh (cả các tiến trình con), báo `#3 đã bị huỷ bởi @bạn` |
+| Đã xong (hoàn tất, thất bại hoặc đã huỷ) | Trả lời `#3 đã hoàn thành.` |
+| Không có job số đó | Trả lời `Không tìm thấy #3.` |
+
+- `cancel` luôn được hiểu là lệnh huỷ, kể cả khi job trong DM đang chờ trả lời.
+- Thông báo huỷ được đăng ở nơi của job (DM hoặc thread của job). Nếu bạn gõ `cancel` ở chỗ khác, bot trả lời thêm `Đang huỷ #3…` ngay tại chỗ đó.
+- Ai có quyền dùng bot ở kênh của job thì huỷ được job đó.
 
 ### Khi có sự cố
 

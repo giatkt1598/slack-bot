@@ -43,7 +43,10 @@ function createBus() {
     subscribeEvents: (handler) => listen(eventsChannel(), handler),
     // Resolves to the number of workers that received the input (0 = nobody is running this job).
     sendInput: (jobId, text) => publisher.publish(inputChannel(jobId), JSON.stringify({ text })),
-    subscribeInput: (jobId, handler) => listen(inputChannel(jobId), (message) => handler(message.text)),
+    // Same channel also carries cancel requests ({ cancel: true, by }), so a worker only listens once per job.
+    sendCancel: (jobId, by) => publisher.publish(inputChannel(jobId), JSON.stringify({ cancel: true, by })),
+    subscribeInput: (jobId, onInput, onCancel = () => {}) => listen(inputChannel(jobId),
+      (message) => (message.cancel ? onCancel(message) : onInput(message.text))),
     // Job numbers (#1, #2, …) come from a Redis counter shared by every bot instance.
     nextJobNumber: () => publisher.incr(jobSequenceKey()),
     // Keeps the counter ahead of jobs already recorded, e.g. after the Redis data was wiped.

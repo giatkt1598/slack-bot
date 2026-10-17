@@ -202,7 +202,6 @@ fix login                                         ← you
 
 - In a channel, answer by **replying in the job's thread**. The answer is sent to the command followed by Enter; an empty reply (just @mentioning the bot) is the same as pressing Enter.
 - Anyone allowed to use the bot can answer.
-- The log message shows the **last 10,000 characters** of output. If a command prints more, the beginning is cut off (the log starts with `…`). Slack truncates a message at 40,000 characters, so this limit (`MAX_CHARS` in `src/bot/logStream.ts`) can't be raised indefinitely.
 - If nobody answers within `INPUT_TIMEOUT_MS` (30 minutes by default), the command is cancelled: `#1 failed: No answer received in time (30 minutes).`
 - `deploy` jobs run one after another — the next job waits until the previous one has finished (and reported `completed`/`failed`). `status` jobs run in parallel.
 - If a job has to wait (jobs are already waiting, or every slot is busy), the bot first posts ``Added #4 `gcmd deploy --ticket ABC-111` to the queue``, then `#4 Running …` when the job actually starts. A job that can start right away only gets `#4 Running …`.

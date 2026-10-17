@@ -45,39 +45,10 @@ test('jobs without a thread (DMs) get a top-level log message', async () => {
   assert.equal(client.calls[0][1].channel, 'D1');
 });
 
-test('render keeps only the last 10,000 characters and neutralises code fences', () => {
-  const text = render({ job: { id: 'job-15' }, text: `${'x'.repeat(12_000)}\`\`\`end`, done: false });
-  assert.match(text, /^📜 \*Log #15\* \(running…\)\n```\n…x/);
-  assert.ok(text.length < 10_100, `message is ${text.length} characters`);
+test('render keeps only the tail and neutralises code fences', () => {
+  const text = render({ job: { id: 'job-15' }, text: `${'x'.repeat(5000)}\`\`\`end`, done: false });
+  assert.match(text, /^📜 \*Log #15\* \(running…\)\n/);
+  assert.ok(text.length < 3700);
   assert.match(text, /ʼʼʼend/);
   assert.equal(stripAnsi('\x1b[1;31mred\x1b[0m'), 'red');
-});
-
-test('output up to 10,000 characters is shown in full, longer output loses only its start', () => {
-  const lines = (count: number) => Array.from({ length: count }, (_, index) => `line ${String(index).padStart(4, '0')}`);
-  const fits = lines(1000).join('\n'); // 9,999 characters
-  assert.equal(fits.length, 9999);
-  const full = render({ job: { id: 'job-1' }, text: fits, done: true });
-  assert.ok(full.includes('line 0000') && full.includes('line 0999'));
-  assert.ok(!full.includes('…'));
-
-  const tooLong = lines(1200).join('\n');
-  const cut = render({ job: { id: 'job-1' }, text: tooLong, done: true });
-  assert.ok(!cut.includes('line 0000'));
-  assert.ok(cut.includes('line 1199'));
-  assert.match(cut, /```\n…/);
-});
-
-test('the in-memory buffer follows the same limit', async () => {
-  const client = fakeClient();
-  const logs = createLogStreams(client, { intervalMs: 10 });
-  await logs.start(job);
-  logs.append(job, `${'a'.repeat(15_000)}\n`);
-  logs.append(job, `${'b'.repeat(15_000)}\nEND\n`);
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  await logs.finish(job.id);
-  const last = client.calls.at(-1)![1].text;
-  assert.ok(last.includes('END') && last.includes('b'.repeat(100)));
-  assert.ok(!last.includes('a'.repeat(100)));
-  assert.ok(last.length < 10_100);
 });
